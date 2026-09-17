@@ -16,12 +16,19 @@ create table if not exists events (
   os          text,
   referer     text,
   user_agent  text,
+  -- Salted SHA-256 of the IP, for rate limiting only: visitors are counted,
+  -- never identified, and the raw IP is never stored.
+  ip_hash     text,
   created_at  timestamptz not null default now()
 );
+
+-- Safe to re-run on a table created before the rate limiter existed.
+alter table events add column if not exists ip_hash text;
 
 create index if not exists idx_events_created  on events (created_at desc);
 create index if not exists idx_events_type     on events (type);
 create index if not exists idx_events_country  on events (country);
+create index if not exists idx_events_ip       on events (ip_hash, created_at desc);
 
 -- ─── Aggregate views the dashboard reads (server-side, via service_role) ───
 -- security_invoker: a plain view runs as its owner and would bypass RLS,

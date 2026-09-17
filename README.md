@@ -54,6 +54,24 @@ GeoIP database (MaxMind GeoLite2) on plain shared hosting. No external lookup, s
 nothing to block. The browser never talks to the database directly; only the
 server does, so the DB stays private (RLS on in Supabase; server-only creds in PHP).
 
+## The endpoint is public, so it is guarded
+
+A tracking endpoint has to accept anonymous POSTs from any domain — that is what a
+pixel is. What keeps it from being a free write API into the database:
+
+| Guard | Where |
+|---|---|
+| only `pageview` / `click` / `lead` / `test` are accepted | `api/track.js` |
+| request body capped at 2 KB | `api/track.js` |
+| 10 events per minute per visitor → `429` | `api/track.js` |
+| events older than 30 days are pruned | `api/track.js` (no scheduler needed) |
+| every value is escaped before it reaches the dashboard | `public/index.html` |
+| the database is reachable only through the server's key; RLS on, no public policies | `db/schema.sql` |
+
+Rate limiting counts visitors without identifying them: the IP is salted and hashed
+(SHA-256, truncated) and the raw address is never stored. Optional `IP_SALT` env var,
+otherwise the server key is used as the salt.
+
 ## Files
 
 | Path | What |
@@ -62,8 +80,12 @@ server does, so the DB stays private (RLS on in Supabase; server-only creds in P
 | `public/t.js` | the tracking snippet (the "pixel") |
 | `api/track.js` | receives an event, resolves geo/device, writes to Supabase |
 | `api/stats.js` | returns aggregates for the dashboard |
-| `db/schema.sql` | table `events` + aggregate views — run once in Supabase |
+| `db/schema.sql` | table `events` + aggregate views — run in Supabase (idempotent) |
 | `.env.local` | local secrets (gitignored) |
+
+**Worth a look:** `api/track.js` — geo/device resolution, the guards and the hashed
+rate limiter; `db/schema.sql` — the aggregate views and why they are `security_invoker`;
+`public/t.js` — 45 lines, derives its own endpoint, never throws on the host page.
 
 ---
 
