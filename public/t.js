@@ -20,11 +20,20 @@
   var site = (script && script.getAttribute("data-site")) || location.hostname;
   var q = new URLSearchParams(location.search);
 
+  // The _fbp cookie is set by Facebook's browser pixel; passing it along lets a
+  // server-side event be matched to the same person. Absent? Then it is absent.
+  function cookie(name) {
+    var m = document.cookie.match("(?:^|; )" + name + "=([^;]*)");
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
   function base(type) {
     return {
       type: type,
       site: site,
       clickid: q.get("clickid") || q.get("click_id") || null,
+      fbclid: q.get("fbclid") || null,
+      fbp: cookie("_fbp"),
       sub1: q.get("sub1"), sub2: q.get("sub2"), sub3: q.get("sub3"),
       sub4: q.get("sub4"), sub5: q.get("sub5")
     };

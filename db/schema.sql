@@ -24,6 +24,10 @@ create table if not exists events (
 
 -- Safe to re-run on a table created before the rate limiter existed.
 alter table events add column if not exists ip_hash text;
+-- Ad-platform click identifiers, needed to match a server event to its click:
+-- fbclid comes in the landing URL, _fbp is the cookie the browser pixel sets.
+alter table events add column if not exists fbclid text;
+alter table events add column if not exists fbp text;
 
 create index if not exists idx_events_created  on events (created_at desc);
 create index if not exists idx_events_type     on events (type);
@@ -59,11 +63,56 @@ create table if not exists conversions (
 );
 
 alter table conversions add column if not exists ip_hash text;
+-- A network may pass the lead's e-mail or phone. They are hashed at the door
+-- (SHA-256, after Meta's normalisation) and only the hash is stored, so the
+-- database never holds a readable address even for a moment.
+alter table conversions add column if not exists em_hash text;
+alter table conversions add column if not exists ph_hash text;
 
 create index if not exists idx_conv_created on conversions (created_at desc);
 create index if not exists idx_conv_clickid on conversions (clickid);
 
 alter table conversions enable row level security;
+
+-- ─── CAPI deliveries: what we send OUTWARD, and what came back ────────────
+-- The browser pixel gets blocked, so the server tells the ad platform about a
+-- conversion itself. Every attempt is recorded: the exact payload, the HTTP
+-- answer, the latency and the attempt number. A delivery pipeline you cannot
+-- inspect is a delivery pipeline you cannot debug.
+create table if not exists capi_deliveries (
+  id            bigint generated always as identity primary key,
+  conversion_id bigint references conversions (id) on delete cascade,
+  -- Dedupe key, shared with the browser pixel: the platform drops a duplicate
+  -- when both sides send the same event_id, and so do we before even sending.
+  event_id      text not null unique,
+  event_name    text not null default 'Lead',
+  destination   text not null,                    -- 'meta' or 'sink'
+  status        text not null default 'pending',  -- pending / delivered / failed / skipped
+  http_status   int,
+  attempts      int not null default 0,
+  latency_ms    int,
+  request       jsonb,                            -- exactly what was sent
+  response      jsonb,                            -- exactly what came back
+  next_try_at   timestamptz,                      -- set when a retry is due
+  -- How many times the same event_id was offered again after delivery. Kept as
+  -- a counter rather than extra rows: the duplicate is suppressed, not hidden.
+  duplicates    int not null default 0,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+create index if not exists idx_capi_created on capi_deliveries (created_at desc);
+create index if not exists idx_capi_retry   on capi_deliveries (status, next_try_at);
+
+alter table capi_deliveries enable row level security;
+
+create or replace view stats_capi with (security_invoker = true) as
+  select count(*)::int                                            as n,
+         count(*) filter (where status = 'delivered')::int         as delivered,
+         count(*) filter (where status = 'failed')::int            as failed,
+         count(*) filter (where status = 'skipped')::int           as skipped,
+         coalesce(round(avg(latency_ms) filter (where status = 'delivered')), 0)::int as avg_ms
+  from capi_deliveries;
 
 -- ─── Aggregate views the dashboard reads (server-side, via service_role) ───
 -- security_invoker: a plain view runs as its owner and would bypass RLS,

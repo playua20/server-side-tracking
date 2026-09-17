@@ -1,41 +1,52 @@
 /**
- * Cloudflare Worker — keeps the Supabase project from being paused.
+ * Cloudflare Worker — two jobs, both outside the deployment they serve.
  *
- * A free Supabase project is paused after ~7 days without activity and has to
- * be restored by hand, so the demo would simply be broken for whoever opened
- * it next. This pings the app every 3 days, which resets that clock.
+ * 1. Every 15 min: /api/capi-retry — redelivers Conversions API events that
+ *    failed. Serverless has nowhere to keep a background worker, so a failed
+ *    delivery waits in the table until something calls for it. Running that
+ *    sweeper here means a broken deployment does not also break its own repair.
+ *    It touches the database, which incidentally covers job 2 as well.
  *
- * Deliberately NOT a Vercel cron: the job that keeps the site alive should not
- * depend on the same deployment it is watching.
+ * 2. Every 3 days: /api/keepalive — a free Supabase project is paused after a
+ *    week of inactivity and has to be restored by hand, so the demo would be
+ *    broken for whoever opened it next.
  *
- * Deploy:  npx wrangler login && npx wrangler deploy
- * Test:    npx wrangler dev --test-scheduled  (then curl the printed URL + "/__scheduled")
+ * Deploy:  npx wrangler deploy
+ * Secret:  npx wrangler secret put CRON_TOKEN
+ * Logs:    npx wrangler tail
  */
-const TARGET = 'https://server-side-pixel.vercel.app/api/keepalive';
+const BASE = 'https://server-side-pixel.vercel.app';
+const RETRY_CRON = '*/15 * * * *';
 
 export default {
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(ping());
+    ctx.waitUntil(event.cron === RETRY_CRON ? retry(env) : keepalive());
   },
-  // Same check on demand, so the worker can be verified without waiting 3 days.
-  async fetch() {
-    return new Response(JSON.stringify(await ping()), {
-      headers: { 'content-type': 'application/json' },
-    });
+  // Both jobs on demand, so the worker can be verified without waiting.
+  async fetch(req, env) {
+    const which = new URL(req.url).searchParams.get('job');
+    const out = which === 'keepalive' ? await keepalive() : await retry(env);
+    return new Response(JSON.stringify(out, null, 2), { headers: { 'content-type': 'application/json' } });
   },
 };
 
-async function ping() {
+async function call(url, label) {
   const started = Date.now();
   try {
-    const r = await fetch(TARGET, { headers: { 'user-agent': 'keepalive-worker' } });
+    const r = await fetch(url, { headers: { 'user-agent': 'cron-worker' } });
     const body = await r.text();
-    const out = { ok: r.ok, status: r.status, ms: Date.now() - started, body: body.slice(0, 200) };
-    // Failures land in `wrangler tail` and in the Worker's dashboard logs.
-    if (!r.ok) console.error('keepalive failed', out);
+    const out = { job: label, ok: r.ok, status: r.status, ms: Date.now() - started, body: body.slice(0, 400) };
+    if (!r.ok) console.error(label + ' failed', out);
     return out;
   } catch (e) {
-    console.error('keepalive threw', e.message);
-    return { ok: false, error: e.message, ms: Date.now() - started };
+    console.error(label + ' threw', e.message);
+    return { job: label, ok: false, error: e.message, ms: Date.now() - started };
   }
+}
+
+const keepalive = () => call(`${BASE}/api/keepalive`, 'keepalive');
+
+function retry(env) {
+  if (!env.CRON_TOKEN) return Promise.resolve({ job: 'capi-retry', ok: false, error: 'CRON_TOKEN not set' });
+  return call(`${BASE}/api/capi-retry?token=${encodeURIComponent(env.CRON_TOKEN)}`, 'capi-retry');
 }

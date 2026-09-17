@@ -67,6 +67,24 @@
           paying twice, which is what makes a network's retries safe.</p>
       </div>
     </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Conversions API — outbound delivery log</h2>
+      <p class="hint" style="margin-top:0" id="capiWhere"></p>
+      <div class="log"><table id="capi">
+        <thead><tr>
+          <th>time</th><th>event</th><th>to</th><th>status</th>
+          <th>http</th><th>ms</th><th>try</th><th></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="empty" id="noCapi" hidden>Nothing delivered yet — an approved postback triggers a delivery by itself.</p>
+      <p class="hint">A browser pixel is blocked often enough that the platform expects the
+        <b>server</b> to report a conversion. Every approved postback queues one delivery,
+        keyed by <code>event_id</code>: offered twice, the duplicate is suppressed and counted.
+        A failure is retried with a growing delay by the Cloudflare cron, so a bad minute
+        upstream does not lose the event. Open a row to see the exact payload —
+        e-mail, phone and city leave hashed, never readable.</p>
+    </div>
   </div>
 
   <script>
@@ -116,6 +134,32 @@
           `<td>$${Number(a.revenue).toFixed(2)}</td></tr>`).join('');
         document.getElementById('byAd').hidden = !byAd.length;
         document.getElementById('noAd').hidden = byAd.length > 0;
+
+        // Outbound deliveries. The destination is stated plainly: with no pixel
+        // credentials attached these go to our own stand-in, which answers with
+        // the platform's contract — real request, real latency, real retries.
+        const dl = d.deliveries || [];
+        const toMeta = dl.some(x => x.destination === 'meta');
+        document.getElementById('capiWhere').innerHTML = toMeta
+          ? 'Delivering to <b>Meta</b> (pixel credentials are attached).'
+          : 'No pixel credentials attached, so deliveries go to <b>our own stand-in</b> ' +
+            '(<code>/api/capi-sink</code>), which answers with the same contract as the ' +
+            'Graph API. Attach <code>META_PIXEL_ID</code> and <code>META_ACCESS_TOKEN</code> ' +
+            'and the same code delivers to Meta instead.';
+        const badge = s => s === 'delivered' ? '<span class="ok">delivered</span>'
+          : s === 'failed' ? '<span class="bad">failed</span>'
+          : s === 'pending' ? '<span class="warn">retrying</span>' : esc(s);
+        document.querySelector('#capi tbody').innerHTML = dl.map(x => {
+          const dup = x.duplicates ? ` <span class="count">+${x.duplicates} dup</span>` : '';
+          return `<tr><td>${new Date(x.created_at).toLocaleTimeString([], { hour12: false })}</td>` +
+            `<td>${esc(x.event_name)}${dup}</td><td>${esc(x.destination)}</td>` +
+            `<td>${badge(x.status)}</td><td>${x.http_status ?? '–'}</td>` +
+            `<td>${x.latency_ms ?? '–'}</td><td>${x.attempts}</td>` +
+            `<td><details><summary>payload</summary><pre class="code">` +
+            `${esc(JSON.stringify({ sent: x.request, answer: x.response }, null, 2))}</pre></details></td></tr>`;
+        }).join('');
+        document.getElementById('capi').hidden = !dl.length;
+        document.getElementById('noCapi').hidden = dl.length > 0;
 
         // Short upright labels ("21:00"), thinned out by Chart.js; the tooltip
         // carries the full date, kept on the chart so it survives a refresh.

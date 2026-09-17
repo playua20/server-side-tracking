@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const [total, byType, byCountry, byDevice, byHour, recent, conv, byAd] = await Promise.all([
+    const [total, byType, byCountry, byDevice, byHour, recent, conv, byAd, capi, deliveries] = await Promise.all([
       supabase.from('events').select('*', { count: 'exact', head: true }),
       supabase.from('stats_by_type').select('*'),
       supabase.from('stats_by_country').select('*').limit(12),
@@ -23,6 +23,11 @@ export default async function handler(req, res) {
         .limit(30), // a scrollable tail of the newest events, not a full archive
       supabase.from('stats_conversions').select('*').maybeSingle(),
       supabase.from('stats_by_ad').select('*').limit(10),
+      supabase.from('stats_capi').select('*').maybeSingle(),
+      supabase.from('capi_deliveries')
+        .select('id,event_id,event_name,destination,status,http_status,attempts,latency_ms,duplicates,request,response,created_at')
+        .order('created_at', { ascending: false })
+        .limit(10),
     ]);
 
     res.status(200).json({
@@ -35,6 +40,9 @@ export default async function handler(req, res) {
       // The money side: postback-created conversions, and which ad they came from.
       conversions: conv?.data || { n: 0, approved: 0, pending: 0, rejected: 0, orphans: 0, revenue: 0 },
       byAd:      byAd?.data || [],
+      // The outward side: what we told the ad platform, and what it answered.
+      capi:      capi?.data || { n: 0, delivered: 0, failed: 0, skipped: 0, avg_ms: 0 },
+      deliveries: deliveries?.data || [],
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

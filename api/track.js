@@ -66,6 +66,9 @@ export default async function handler(req, res) {
       ip_hash,
       site:    str(b.site, 64),
       clickid: str(b.clickid, 128),
+      // Ad-platform click ids, needed later to match a server-side conversion.
+      fbclid:  str(b.fbclid, 255),
+      fbp:     str(b.fbp, 128),
       sub1: str(b.sub1, 255), sub2: str(b.sub2, 255), sub3: str(b.sub3, 255),
       sub4: str(b.sub4, 255), sub5: str(b.sub5, 255),
       // Real geo, straight from Vercel's edge headers — no external lookup needed.

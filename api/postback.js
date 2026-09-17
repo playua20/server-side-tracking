@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { ipHash, overLimit, pruneSometimes } from './_shared.js';
+import { hashEmail, hashPhone } from './_capi.js';
+import { deliverConversion } from './_deliver.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -81,6 +83,10 @@ export default async function handler(req, res) {
 
     const row = {
       txid, clickid, status, payout, currency,
+      // Hashed at the door: if a network passes the lead's e-mail or phone, the
+      // readable value is never written anywhere — not even for a moment.
+      em_hash: hashEmail(str(p.email, 255)),
+      ph_hash: hashPhone(str(p.phone, 64)),
       event_id: click?.id ?? null,
       sub1: click?.sub1 ?? null,
       sub2: click?.sub2 ?? null,
@@ -102,6 +108,16 @@ export default async function handler(req, res) {
 
     await pruneSometimes(supabase, 'conversions', KEEP_DAYS);
 
+    // An approved conversion is also news for the ad platform, so the same call
+    // that settles the money triggers the outbound delivery. It is awaited to
+    // keep it inside the function's lifetime — serverless kills whatever is
+    // still running after the response — but its outcome never changes ours:
+    // the network must get its 200 regardless of what Meta is doing.
+    let capi;
+    if (status === 'approved') {
+      capi = await deliverConversion(supabase, data.id, `https://${req.headers.host}`);
+    }
+
     return res.status(200).json({
       ok: true,
       conversion_id: data.id,
@@ -109,6 +125,7 @@ export default async function handler(req, res) {
       matched: row.matched,             // false = a postback for a click we never saw
       repeated: Boolean(existing),      // true = this txid was already recorded
       ...(existing && existing.status !== status ? { was: existing.status } : {}),
+      ...(capi ? { capi } : {}),
     });
   } catch (e) {
     // A 500 makes the network retry, which is what we want for a transient
