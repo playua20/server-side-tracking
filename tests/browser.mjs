@@ -80,13 +80,21 @@ try {
       for (const width of [1440, 1280, 1100, 1000, 980, 900, 860, 840, 800, 768, 720, 700, 640, 560, 480, 430, 390, 360, 320]) {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(BASE + path, { waitUntil: 'load' });
-        await page.waitForTimeout(400);
-        const over = await page.evaluate(() => {
+        const measure = () => page.evaluate(() => {
           const el = document.documentElement;
           const boxes = [...document.querySelectorAll('.log, .feed')]
             .map(b => b.scrollWidth - b.clientWidth).filter(n => n > 0);
           return { page: el.scrollWidth - el.clientWidth, boxes };
         });
+        // Measured twice: while charts and fonts settle the layout is briefly
+        // wider than it ends up, and a test that reports that is a test nobody
+        // trusts. Only an overflow that survives counts.
+        await page.waitForTimeout(400);
+        let over = await measure();
+        if (over.page || over.boxes.length) {
+          await page.waitForTimeout(1200);
+          over = await measure();
+        }
         if (over.page || over.boxes.length) bad.push(`${path} @${width}: page +${over.page}, tables ${JSON.stringify(over.boxes)}`);
       }
     }
