@@ -97,22 +97,34 @@ select {
   background: var(--panel); color: var(--ink); border: 1px solid var(--line);
   border-radius: 6px; padding: 8px 10px; font: inherit; font-size: 14px; min-width: 160px;
 }
+/* Any wide table lives in one of these: a string in a cell is arbitrary data,
+   and a long one must scroll its own box rather than widen the page. */
 .log { overflow-x: auto; }
-/* Seven columns do not fit a phone, so the log starts with the five that
-   matter and earns the rest back with width. Dropped first: os, which the
-   device icon half-implies; then site, the widest text in the table. Labels
-   beside the icons come last, at 761px. Every one keeps its title attribute. */
-.log th:nth-child(3), .log td:nth-child(3),
-.log th:nth-child(6), .log td:nth-child(6) { display: none; }
-.log .cell .t { display: none; }
-.log th, .log td { padding: 6px 3px; }
+
+/* The event log has seven columns, which do not fit a phone, so it starts with
+   the five that matter and earns the rest back with width. Dropped first: os,
+   which the device icon half-implies; then site, the widest text in the table.
+   Labels beside the icons come last, at 761px — each keeps its title. */
+#log th:nth-child(3), #log td:nth-child(3),
+#log th:nth-child(6), #log td:nth-child(6) { display: none; }
+#log .cell .t { display: none; }
+#log th, #log td { padding: 6px 3px; }
 @media (min-width: 421px) {
-  .log th:nth-child(6), .log td:nth-child(6) { display: table-cell; }
-  .log th, .log td { padding: 7px 8px; }
+  #log th:nth-child(6), #log td:nth-child(6) { display: table-cell; }
+  #log th, #log td { padding: 7px 8px; }
 }
 @media (min-width: 761px) {
-  .log th:nth-child(3), .log td:nth-child(3) { display: table-cell; }
-  .log .cell .t { display: inline; }
+  #log th:nth-child(3), #log td:nth-child(3) { display: table-cell; }
+  #log .cell .t { display: inline; }
+}
+
+/* The delivery log has eight. Below 761px the destination and the latency go —
+   the destination is stated in the sentence above the table anyway. */
+#capi th:nth-child(3), #capi td:nth-child(3),
+#capi th:nth-child(6), #capi td:nth-child(6) { display: none; }
+@media (min-width: 761px) {
+  #capi th:nth-child(3), #capi td:nth-child(3),
+  #capi th:nth-child(6), #capi td:nth-child(6) { display: table-cell; }
 }
 .more { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
 .count { color: var(--muted); font-size: 12px; }
@@ -157,4 +169,4 @@ code { font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
        padding: 1px 5px; overflow-wrap: anywhere; }
 /* The log is the one place where a row's own time matters, so it wraps rather
    than being cut — every other column stays on one line. */
-.log td:first-child { white-space: normal; }
+#log td:first-child { white-space: normal; }

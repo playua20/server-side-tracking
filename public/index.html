@@ -54,10 +54,12 @@
     </div>
     <div class="grid grid--split" style="margin-top:16px">
       <div class="card"><h2>Revenue by ad</h2>
-        <table id="byAd">
+        <!-- In a scroll box: campaign and ad ids are arbitrary strings, and on a
+             narrow phone a long one would otherwise widen the whole page. -->
+        <div class="log"><table id="byAd">
           <thead><tr><th>campaign</th><th>ad</th><th>conv.</th><th>revenue</th></tr></thead>
           <tbody></tbody>
-        </table>
+        </table></div>
         <p class="empty" id="noAd" hidden>No conversions yet — send a postback with the command on the right.</p>
         <p class="hint">A postback carries no ad ids. These come from the <b>click</b>
           (the platform's macros in the landing URL) and are joined to the conversion
