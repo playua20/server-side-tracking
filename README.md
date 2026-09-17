@@ -121,6 +121,46 @@ break in production:
 - **An open postback endpoint is free money for whoever finds it** — hence the token,
   the payout cap and a 10-per-minute limit per caller.
 
+## Reporting back: the Conversions API bridge
+
+A browser pixel is blocked often enough that ad platforms now expect the **server**
+to report conversions. So every approved postback also queues one outbound
+delivery, and the dashboard shows the log: destination, HTTP status, latency,
+attempt number, and the exact payload that was sent.
+
+**Where it goes.** With `META_PIXEL_ID` and `META_ACCESS_TOKEN` set, deliveries go
+to the real Graph API. Without them they go to `api/capi-sink.js` — our own
+endpoint answering with the same contract, including a `400` for a malformed
+payload and a `500` on `?fail=1` to exercise retries. The dashboard states which
+destination is in use, and the sink's response carries `stand_in: true`. Nothing
+pretends to be Meta; attaching credentials changes the destination, not the code.
+
+**The parts that are actually hard**, none of which is the `fetch`:
+
+- **`fbc` is not the raw `fbclid`.** The platform wants
+  `fb.1.<clickTimeSeconds>.<fbclid>` and reads the click time out of it. Getting
+  this wrong is the usual reason a server event never matches its click, and it
+  fails silently — the event is accepted and simply attributed to nobody.
+- **`event_id` is shared with the browser pixel.** Both sides sending the same id
+  is what lets the platform drop the duplicate. Our own queue applies the same
+  rule before sending: offered twice, the second is suppressed and counted, so the
+  log shows the call arrived rather than hiding it.
+- **Personal data is hashed at the door.** The postback hashes e-mail and phone on
+  intake — normalise, then SHA-256, as the platform specifies — and only the hash
+  is stored. The database never holds a readable address, so the payload cannot
+  leak one even by mistake. Empty fields are omitted rather than sent blank.
+- **`event_time` is clamped to the 7-day window** the platform accepts, because a
+  postback can arrive later than that and a rejected batch is worse than a
+  slightly adjusted timestamp.
+- **Failures wait in the table, not in memory.** A serverless function cannot hold
+  a background worker, so a failed delivery keeps `next_try_at` and the Cloudflare
+  cron sweeps what is due every 15 minutes with a growing delay (1m, 5m, 25m, 2h,
+  10h, then given up at five attempts). The sweeper lives on Cloudflare on
+  purpose: the thing that repairs deliveries should not depend on the deployment
+  whose deliveries broke.
+- **A delivery never breaks a postback.** The network gets its `200` whatever the
+  platform is doing; the delivery outcome is reported alongside, not instead.
+
 ## Two details worth a second look
 
 **The log pages by cursor, not `offset`.** `/api/events` takes the last row seen as
@@ -149,6 +189,10 @@ should not depend on the deployment it watches.
 | `api/stats.js` | returns aggregates for the dashboard |
 | `api/events.js` | the log's API — keyset pagination, filters |
 | `api/postback.js` | S2S postback receiver — attribution, idempotency, statuses |
+| `api/_capi.js` | Conversions API payload builder, hashing, transport, backoff |
+| `api/_deliver.js` | the delivery queue: one attempt per row, dedupe, retry state |
+| `api/capi-sink.js` | stand-in for the platform's endpoint when no pixel is attached |
+| `api/capi-retry.js` | redelivers what failed; called by the cron, token-protected |
 | `api/_shared.js` | hashed-IP rate limiting and retention, used by both writers |
 | `api/keepalive.js` | one cheap query, called by the cron below |
 | `cron/` | Cloudflare Worker that pings keepalive every 3 days |

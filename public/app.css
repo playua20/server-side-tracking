@@ -130,8 +130,14 @@ select {
 .ok   { color: var(--accent); }
 .bad  { color: #f85149; }
 .warn { color: #d29922; }
-summary { cursor: pointer; color: var(--info); font-size: 12px; }
-details[open] .code { max-height: 320px; overflow: auto; }
+/* A button that reads as a link: it toggles, so it is not an anchor. */
+button.link {
+  background: none; border: 0; padding: 0; color: var(--info); font: inherit;
+  font-size: 12px; cursor: pointer; text-decoration: underline;
+  text-decoration-thickness: 1px; text-underline-offset: 3px;
+}
+tr.payload td { padding: 0 8px 12px; white-space: normal; }
+tr.payload .code { margin: 0; max-height: 340px; overflow: auto; }
 
 code { font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
        background: var(--bg); border: 1px solid var(--line); border-radius: 4px;

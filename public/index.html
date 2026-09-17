@@ -149,14 +149,17 @@
         const badge = s => s === 'delivered' ? '<span class="ok">delivered</span>'
           : s === 'failed' ? '<span class="bad">failed</span>'
           : s === 'pending' ? '<span class="warn">retrying</span>' : esc(s);
+        // The payload gets its own full-width row rather than living inside a
+        // cell: inside one, JSON wraps to a few characters per line on a phone.
         document.querySelector('#capi tbody').innerHTML = dl.map(x => {
           const dup = x.duplicates ? ` <span class="count">+${x.duplicates} dup</span>` : '';
           return `<tr><td>${new Date(x.created_at).toLocaleTimeString([], { hour12: false })}</td>` +
             `<td>${esc(x.event_name)}${dup}</td><td>${esc(x.destination)}</td>` +
             `<td>${badge(x.status)}</td><td>${x.http_status ?? '–'}</td>` +
             `<td>${x.latency_ms ?? '–'}</td><td>${x.attempts}</td>` +
-            `<td><details><summary>payload</summary><pre class="code">` +
-            `${esc(JSON.stringify({ sent: x.request, answer: x.response }, null, 2))}</pre></details></td></tr>`;
+            `<td><button class="link" data-open="${x.id}">payload</button></td></tr>` +
+            `<tr class="payload" id="pl-${x.id}" hidden><td colspan="8"><pre class="code">` +
+            `${esc(JSON.stringify({ sent: x.request, answer: x.response }, null, 2))}</pre></td></tr>`;
         }).join('');
         document.getElementById('capi').hidden = !dl.length;
         document.getElementById('noCapi').hidden = dl.length > 0;
@@ -244,6 +247,16 @@
         document.getElementById('copied').textContent = 'select it manually';
       }
       setTimeout(() => { document.getElementById('copied').textContent = ''; }, 2500);
+    });
+
+    // Delegated, because the log is re-rendered on every refresh.
+    document.getElementById('capi').addEventListener('click', (ev) => {
+      const btn = ev.target.closest('[data-open]');
+      if (!btn) return;
+      const row = document.getElementById('pl-' + btn.dataset.open);
+      if (!row) return;
+      row.hidden = !row.hidden;
+      btn.textContent = row.hidden ? 'payload' : 'hide';
     });
 
     // Both buttons take the same path a lander does — only the type differs,
