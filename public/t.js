@@ -9,7 +9,11 @@
 (function () {
   "use strict";
 
-  var script = document.currentScript;
+  // currentScript is null in some embeddings — a script written with
+  // document.write, or injected dynamically. Falling back to finding our own
+  // tag keeps both the endpoint and the data-* attributes working there.
+  var script = document.currentScript ||
+    document.querySelector('script[src*="/t.js"]');
 
   // Derived from this script's own URL, so the same file works both on the demo
   // page and embedded on any other domain — nothing to edit per deployment.
