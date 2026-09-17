@@ -43,6 +43,30 @@
         <p class="hint">This is the live tail — the <a href="/events.html">full event log</a> has every event, with filters.</p>
       </div>
     </div>
+    <div class="grid grid--split" style="margin-top:16px">
+      <div class="card"><h2>Revenue by ad</h2>
+        <table id="byAd">
+          <thead><tr><th>campaign</th><th>ad</th><th>conv.</th><th>revenue</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <p class="empty" id="noAd" hidden>No conversions yet — send a postback with the command on the right.</p>
+        <p class="hint">A postback carries no ad ids. These come from the <b>click</b>
+          (the platform's macros in the landing URL) and are joined to the conversion
+          by <code>clickid</code> — that join is what tells you which ad paid.</p>
+      </div>
+      <div class="card"><h2>Postback (S2S)</h2>
+        <p class="hint" style="margin-top:0">Your events on this page carry the click id
+          <code id="cid"></code>. Call the endpoint the way an affiliate network would:</p>
+        <pre class="code" id="pbCmd"></pre>
+        <div class="more">
+          <button class="ghost" id="copyPb">Copy</button>
+          <span class="count" id="copied"></span>
+        </div>
+        <p class="hint">Then reload: the conversion appears above, attributed to your click.
+          Run it twice — the same <code>txid</code> updates that one conversion instead of
+          paying twice, which is what makes a network's retries safe.</p>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -75,12 +99,23 @@
         const d = await r.json();
 
         const leads = (d.byType.find(t => t.type === 'lead') || {}).n || 0;
+        const c = d.conversions || {};
         document.getElementById('tiles').innerHTML = [
           ['Total events', d.total, 'signal'],
           ['Leads', leads, 'window'],
+          ['Conversions', c.n || 0, 'compass'],
+          ['Revenue', '$' + Number(c.revenue || 0).toFixed(2), 'flame'],
           ['Countries', d.byCountry.length, 'globe'],
           ['Devices', d.byDevice.length, 'monitor'],
         ].map(([l, n, i]) => `<div class="tile"><div class="n">${n}</div><div class="l">${ico(i)}${l}</div></div>`).join('');
+
+        // Revenue is approved payouts only; the rest is stated rather than hidden.
+        const byAd = d.byAd || [];
+        document.querySelector('#byAd tbody').innerHTML = byAd.map(a =>
+          `<tr><td>${esc(a.campaign)}</td><td>${esc(a.ad)}</td><td>${a.conversions}</td>` +
+          `<td>$${Number(a.revenue).toFixed(2)}</td></tr>`).join('');
+        document.getElementById('byAd').hidden = !byAd.length;
+        document.getElementById('noAd').hidden = byAd.length > 0;
 
         // Short upright labels ("21:00"), thinned out by Chart.js; the tooltip
         // carries the full date, kept on the chart so it survives a refresh.
@@ -130,6 +165,43 @@
       }
     }
 
+    // A click id for this visit, so a postback has something to attribute to.
+    // ?clickid=… in the URL wins — that is how a real lander receives it from
+    // the ad platform, together with the campaign/adset/ad macros.
+    const params = new URLSearchParams(location.search);
+    const rnd = () => Math.random().toString(36).slice(2, 10);
+    const CLICKID = params.get('clickid') || (() => {
+      try {
+        let v = sessionStorage.getItem('demo_clickid');
+        if (!v) { v = 'demo-' + rnd(); sessionStorage.setItem('demo_clickid', v); }
+        return v;
+      } catch (e) { return 'demo-' + rnd(); }
+    })();
+    const SUBS = {
+      sub1: params.get('sub1') || 'demo-campaign',
+      sub2: params.get('sub2') || 'demo-adset',
+      sub3: params.get('sub3') || 'demo-ad',
+    };
+
+    // This token is public on purpose: the demo is worthless if nobody can call
+    // the endpoint. A real deployment keeps POSTBACK_TOKEN secret.
+    const DEMO_TOKEN = 'demo-8bc1544c0aecb0ecce';
+    const pbUrl = () => `${location.origin}/api/postback?token=${DEMO_TOKEN}` +
+      `&clickid=${encodeURIComponent(CLICKID)}&txid=tx-${rnd()}&payout=12.50&status=approved`;
+
+    document.getElementById('cid').textContent = CLICKID;
+    document.getElementById('pbCmd').textContent = 'curl "' + pbUrl() + '"';
+    document.getElementById('copyPb').addEventListener('click', async (ev) => {
+      const text = document.getElementById('pbCmd').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        document.getElementById('copied').textContent = 'copied';
+      } catch (e) {
+        document.getElementById('copied').textContent = 'select it manually';
+      }
+      setTimeout(() => { document.getElementById('copied').textContent = ''; }, 2500);
+    });
+
     // Both buttons take the same path a lander does — only the type differs,
     // which is exactly what the Leads tile counts.
     for (const b of document.querySelectorAll('[data-type]')) {
@@ -138,7 +210,7 @@
         btn.disabled = true;
         try {
           await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: btn.dataset.type, site: 'dashboard-demo' }) });
+            body: JSON.stringify({ type: btn.dataset.type, site: 'dashboard-demo', clickid: CLICKID, ...SUBS }) });
           refresh();
           setTimeout(refresh, 1500); // a second look, in case the write landed late
         } finally { setTimeout(() => { btn.disabled = false; }, 600); }

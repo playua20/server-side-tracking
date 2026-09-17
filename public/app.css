@@ -117,6 +117,18 @@ select {
 .more { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
 .count { color: var(--muted); font-size: 12px; }
 .empty { color: var(--muted); font-size: 13px; padding: 18px 8px; }
+
+/* A command meant to be copied: wraps rather than scrolls, so nothing is
+   hidden off the edge on a phone. */
+.code {
+  margin: 12px 0 0; padding: 12px; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+code { font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+       background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+       padding: 1px 5px; overflow-wrap: anywhere; }
 /* The log is the one place where a row's own time matters, so it wraps rather
    than being cut — every other column stays on one line. */
 .log td:first-child { white-space: normal; }

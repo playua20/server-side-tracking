@@ -72,6 +72,55 @@ Rate limiting counts visitors without identifying them: the IP is salted and has
 (SHA-256, truncated) and the raw address is never stored. Optional `IP_SALT` env var,
 otherwise the server key is used as the salt.
 
+## The money half: S2S postbacks
+
+A pixel records traffic; a **postback** is how the money finds its way back to the
+ad that produced it. The network calls one URL when a lead is approved, rejected
+or still pending — and it knows nothing about your campaigns, only its own
+`clickid`. The campaign and ad ids arrive earlier, on the click itself, from the
+ad platform's macros in the landing URL. Joining the two by `clickid` is the whole
+trick, and it is what the **Revenue by ad** card on the dashboard shows.
+
+```
+ad platform  ──▶  lander?clickid=abc&sub1={{campaign.id}}&sub3={{ad.id}}
+                        │  t.js → /api/track → events (clickid + sub1..sub5)
+                        ▼
+network  ──▶  /api/postback?clickid=abc&txid=987&payout=12.50&status=approved
+                        │  matched by clickid → conversion inherits the ad ids
+                        ▼
+                  which ad actually paid
+```
+
+Try it against the live demo — open the dashboard, it shows your click id and the
+exact command:
+
+```bash
+curl "https://server-side-pixel.vercel.app/api/postback\
+?token=demo-8bc1544c0aecb0ecce&clickid=YOUR-CLICKID&txid=tx-1&payout=12.50&status=approved"
+```
+
+| Parameter | Meaning |
+|---|---|
+| `token` | shared secret. **Published here deliberately** so the demo can be tried; a real deployment keeps `POSTBACK_TOKEN` private |
+| `clickid` | the click to attribute to (`click_id` / `cid` also accepted) |
+| `txid` | the network's transaction id (`transaction_id` / `conversion_id` also accepted) |
+| `status` | `pending` / `approved` / `rejected` — revenue counts approved only, so a rejection is a reversal |
+| `payout`, `currency` | amount and ISO code, capped at 10000 |
+
+What the handler is careful about, because these are the things that actually
+break in production:
+
+- **Retries must not pay twice.** `txid` is unique and the write is an upsert, so a
+  repeated postback updates that one conversion. The response says `repeated: true`,
+  and `was: pending` when the status changed.
+- **A 500 is a request to retry.** Transient database errors answer 500 on purpose —
+  safe, because of the point above. Bad input answers 400 and is not retried.
+- **Postbacks arrive for clicks you never saw** (lost pixel, cleared session). Those
+  are stored with `matched: false` and counted separately rather than dropped, since
+  dropping them would quietly overstate attribution.
+- **An open postback endpoint is free money for whoever finds it** — hence the token,
+  the payout cap and a 10-per-minute limit per caller.
+
 ## Two details worth a second look
 
 **The log pages by cursor, not `offset`.** `/api/events` takes the last row seen as
@@ -99,6 +148,8 @@ should not depend on the deployment it watches.
 | `api/track.js` | receives an event, resolves geo/device, writes to Supabase |
 | `api/stats.js` | returns aggregates for the dashboard |
 | `api/events.js` | the log's API — keyset pagination, filters |
+| `api/postback.js` | S2S postback receiver — attribution, idempotency, statuses |
+| `api/_shared.js` | hashed-IP rate limiting and retention, used by both writers |
 | `api/keepalive.js` | one cheap query, called by the cron below |
 | `cron/` | Cloudflare Worker that pings keepalive every 3 days |
 | `db/schema.sql` | table `events` + aggregate views — run in Supabase (idempotent) |
