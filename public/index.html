@@ -25,15 +25,16 @@
         Track Demo
       </h1>
       <div class="actions">
-        <button id="fire" data-type="test">Send a test event</button>
+        <button id="fire" data-type="click">Send a click event</button>
         <button id="lead" class="ghost" data-type="lead">Send a lead event</button>
       </div>
       <span class="status" id="status">loading…</span>
     </header>
     <p class="sub">A live server-side tracking pixel — <a href="https://github.com/playua20/server-side-tracking">source on GitHub</a>.
-      Click a button: your <b>real</b> country and device are read on the server and show up below in seconds.
-      A <b>lead</b> is the event a lander sends when a form is submitted — and this page carries the
-      pixel itself, so the figures below count actual visits, your own included.</p>
+      This page carries the pixel itself, so opening it already sent a <b>pageview</b> — with your
+      <b>real</b> country and device, read on the server. The buttons send the other two events a
+      lander sends: a <b>click</b> on the offer, and a <b>lead</b> when the form is submitted.
+      A lead is what a network later settles with a postback, and that is where the money appears.</p>
 
     <div class="tiles" id="tiles"></div>
 
