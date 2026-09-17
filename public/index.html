@@ -229,6 +229,13 @@
       sub2: params.get('sub2') || 'demo-adset',
       sub3: params.get('sub3') || 'demo-ad',
     };
+    // The same identifiers t.js collects on a real lander: without them the
+    // outbound CAPI payload would carry no fbc and match nothing.
+    const cookie = n => (document.cookie.match('(?:^|; )' + n + '=([^;]*)') || [])[1];
+    const CLICKIDS = {
+      fbclid: params.get('fbclid') || null,
+      fbp: cookie('_fbp') ? decodeURIComponent(cookie('_fbp')) : null,
+    };
 
     // This token is public on purpose: the demo is worthless if nobody can call
     // the endpoint. A real deployment keeps POSTBACK_TOKEN secret.
@@ -267,7 +274,7 @@
         btn.disabled = true;
         try {
           await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: btn.dataset.type, site: 'dashboard-demo', clickid: CLICKID, ...SUBS }) });
+            body: JSON.stringify({ type: btn.dataset.type, site: 'dashboard-demo', clickid: CLICKID, ...SUBS, ...CLICKIDS }) });
           refresh();
           setTimeout(refresh, 1500); // a second look, in case the write landed late
         } finally { setTimeout(() => { btn.disabled = false; }, 600); }
