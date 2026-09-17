@@ -227,14 +227,16 @@ as $$
                    'skipped',   count(*) filter (where status = 'skipped'),
                    'avg_ms',    coalesce(round(avg(latency_ms) filter (where status = 'delivered')), 0))
                  from capi_deliveries d
-                 where p_site is null or exists (
-                   select 1 from cv where cv.id = d.conversion_id)),
+                 where (p_since is null or d.created_at >= p_since)
+                   and (p_site is null or exists (
+                         select 1 from cv where cv.id = d.conversion_id))),
     'deliveries', (select coalesce(jsonb_agg(d order by (d->>'created_at') desc), '[]') from (
                    select to_jsonb(x) as d from (
                      select id, event_id, event_name, destination, status, http_status,
                             attempts, latency_ms, duplicates, request, response, created_at
                      from capi_deliveries
-                     where p_site is null or exists (select 1 from cv where cv.id = conversion_id)
+                     where (p_since is null or created_at >= p_since)
+                       and (p_site is null or exists (select 1 from cv where cv.id = conversion_id))
                      order by created_at desc limit 10) x) y)
   );
 $$;
