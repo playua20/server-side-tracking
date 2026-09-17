@@ -59,10 +59,15 @@ canvas { max-width: 100%; }
    the row keeps its height and the page does not stretch. */
 .feed { max-height: 366px; overflow: auto; }
 
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* Mobile-first: the base is the phone layout, min-width queries add room. */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
-th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th, td { text-align: left; padding: 6px 5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; }
+@media (min-width: 421px) {
+  table { font-size: 13px; }
+  th, td { padding: 7px 8px; }
+}
 
 /* Icons: Lucide geometry (ISC), inlined per icon — no external file to 404,
    no mask/url() indirection that breaks on a built site. */
@@ -73,13 +78,13 @@ th { color: var(--muted); font-weight: 600; }
 .cell .ico { color: var(--muted); }
 .flag { width: 18px; height: 13px; flex: none; border-radius: 2px;
         background: var(--line); object-fit: cover; }
-/* The icon alone stands for the device and the browser wherever the table
-   would otherwise need a horizontal scrollbar: on phones, and in the
-   860–980px range where the two-column row leaves that card narrow. */
-@media (max-width: 560px), (min-width: 860px) and (max-width: 980px) {
-  .dash .cell .t { display: none; }
-}
-@media (max-width: 420px) { th, td { padding: 6px 5px; font-size: 12px; } }
+/* The icon alone stands for the device, os and browser until the table has the
+   width for a label beside it. On the dashboard that is 981px: below it the
+   card is either the full narrow page or the slim half of the split row. */
+.cell .t { display: none; }
+@media (min-width: 561px) { .cell .t { display: inline; } }
+.dash .cell .t { display: none; }
+@media (min-width: 981px) { .dash .cell .t { display: inline; } }
 
 /* ── Event log ─────────────────────────────────────────────────────────── */
 .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
@@ -90,6 +95,22 @@ select {
   border-radius: 6px; padding: 8px 10px; font: inherit; font-size: 14px; min-width: 160px;
 }
 .log { overflow-x: auto; }
+/* Seven columns do not fit a phone, so the log starts with the five that
+   matter and earns the rest back with width. Dropped first: os, which the
+   device icon half-implies; then site, the widest text in the table. Labels
+   beside the icons come last, at 761px. Every one keeps its title attribute. */
+.log th:nth-child(3), .log td:nth-child(3),
+.log th:nth-child(6), .log td:nth-child(6) { display: none; }
+.log .cell .t { display: none; }
+.log th, .log td { padding: 6px 3px; }
+@media (min-width: 421px) {
+  .log th:nth-child(6), .log td:nth-child(6) { display: table-cell; }
+  .log th, .log td { padding: 7px 8px; }
+}
+@media (min-width: 761px) {
+  .log th:nth-child(3), .log td:nth-child(3) { display: table-cell; }
+  .log .cell .t { display: inline; }
+}
 .more { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
 .count { color: var(--muted); font-size: 12px; }
 .empty { color: var(--muted); font-size: 13px; padding: 18px 8px; }

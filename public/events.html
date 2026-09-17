@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event log — Track Demo</title>
+  <meta name="description" content="The full event log of a server-side tracking pixel, with cursor pagination and filters by type and country.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0d1117">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>
+        <svg class="ico mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.4" fill="currentColor" stroke="none"/><path d="M12.5 18a8.5 8.5 0 0 0-6.5-8.3"/><path d="M19 18A15 15 0 0 0 6 3.2"/></svg>
+        Event log
+      </h1>
+      <span class="status" id="status">loading…</span>
+    </header>
+    <p class="sub">Every event ever recorded, newest first — <a href="/">back to the live dashboard</a>.
+      Paging is by cursor, so rows never repeat or go missing while new events keep arriving.</p>
+
+    <div class="filters">
+      <label class="field"><span>Type</span>
+        <select id="fType"><option value="">all types</option></select>
+      </label>
+      <label class="field"><span>Country</span>
+        <select id="fCountry"><option value="">all countries</option></select>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="log"><table id="log">
+        <thead><tr>
+          <th>time</th><th>type</th><th>site</th><th>country</th>
+          <th>device</th><th>os</th><th>browser</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="empty" id="empty" hidden>No events match this filter yet.</p>
+      <div class="more">
+        <button id="more" class="ghost" hidden>Load more</button>
+        <span class="count" id="count"></span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { esc, ico, DEVICE, BROWSER, OS, countryName, countryCell, iconCell } = App;
+    const $ = id => document.getElementById(id);
+    const body = document.querySelector('#log tbody');
+
+    let next = null;      // cursor of the last row on screen, or null at the end
+    let shown = 0;
+    let total = null;
+    let loading = false;
+
+    const when = iso => {
+      const d = new Date(iso);
+      return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ` +
+             `${d.toLocaleTimeString([], { hour12: false })}`;
+    };
+
+    const row = e => `<tr>` +
+      `<td>${when(e.created_at)}</td>` +
+      `<td>${esc(e.type)}</td>` +
+      `<td>${esc(e.site)}</td>` +
+      `<td>${countryCell(e.country)}</td>` +
+      `<td>${iconCell(DEVICE, e.device, 'window')}</td>` +
+      `<td>${iconCell(OS, e.os, 'window')}</td>` +
+      `<td>${iconCell(BROWSER, e.browser, 'globe')}</td>` +
+      `</tr>`;
+
+    function fillSelect(el, values, label) {
+      const keep = el.value;
+      el.innerHTML = `<option value="">all ${label}</option>` +
+        values.map(v => `<option value="${esc(v)}">${esc(label === 'countries' ? (countryName(v) || v) : v)}</option>`).join('');
+      el.value = keep;
+    }
+
+    async function loadPage(reset) {
+      if (loading) return;
+      loading = true;
+      $('more').disabled = true;
+      try {
+        const p = new URLSearchParams({ limit: '50' });
+        if ($('fType').value) p.set('type', $('fType').value);
+        if ($('fCountry').value) p.set('country', $('fCountry').value);
+        if (!reset && next) p.set('before', next);
+
+        const r = await fetch('/api/events?' + p, { cache: 'no-store' });
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+
+        if (reset) { body.innerHTML = ''; shown = 0; }
+        body.insertAdjacentHTML('beforeend', d.rows.map(row).join(''));
+        shown += d.rows.length;
+        next = d.next;
+
+        if (reset) {
+          total = d.total;
+          fillSelect($('fType'), d.types || [], 'types');
+          fillSelect($('fCountry'), d.countries || [], 'countries');
+        }
+
+        $('more').hidden = !next;
+        $('empty').hidden = shown > 0;
+        $('count').textContent = shown
+          ? (next ? `${shown} of ${total} events` : `all ${shown} events`)
+          : '';
+        $('status').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour12: false });
+      } catch (e) {
+        $('status').textContent = 'error: ' + e.message;
+      } finally {
+        loading = false;
+        $('more').disabled = false;
+      }
+    }
+
+    // A filter change starts a fresh page and puts its state in the URL, so a
+    // filtered log can be linked to and survives a reload.
+    function applyFilters() {
+      const p = new URLSearchParams();
+      if ($('fType').value) p.set('type', $('fType').value);
+      if ($('fCountry').value) p.set('country', $('fCountry').value);
+      history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+      next = null;
+      loadPage(true);
+    }
+
+    $('fType').addEventListener('change', applyFilters);
+    $('fCountry').addEventListener('change', applyFilters);
+    $('more').addEventListener('click', () => loadPage(false));
+
+    const start = new URLSearchParams(location.search);
+    if (start.get('type')) $('fType').innerHTML = `<option value="${esc(start.get('type'))}" selected></option>`;
+    if (start.get('country')) $('fCountry').innerHTML = `<option value="${esc(start.get('country'))}" selected></option>`;
+    loadPage(true);
+  </script>
+</body>
+</html>

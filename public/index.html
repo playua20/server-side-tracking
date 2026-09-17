@@ -7,95 +7,17 @@
   <meta name="description" content="Public live dashboard for a server-side tracking pixel. Click the button and watch your own event appear.">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#0d1117">
+  <link rel="stylesheet" href="/app.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --bg: #0d1117; --panel: #161b22; --line: #26303d;
-      --ink: #e6edf3; --muted: #8b98a5; --accent: #3fb950;
-      color-scheme: dark;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; background: var(--bg); color: var(--ink);
-      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-    header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 8px; }
-    h1 { font-size: 20px; margin: 0; display: flex; align-items: center; gap: 9px; }
-    .sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; max-width: 68ch; }
-    button {
-      background: var(--accent); color: #06210e; border: 0; border-radius: 6px;
-      padding: 9px 16px; font-weight: 600; font-size: 14px; cursor: pointer;
-    }
-    button:disabled { opacity: .6; cursor: default; }
-    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 12px; margin-bottom: 20px; }
-    .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
-    .tile .n { font-size: 26px; font-weight: 700; }
-    .tile .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 720px) {
-      .grid { grid-template-columns: 2fr 1fr; }
-    }
-    /* The events table needs more room than the country bars do, so this row
-       stays stacked (declared after .grid, to win over it) until there is
-       genuinely enough width for both, and then splits less unevenly. */
-    .grid--split { grid-template-columns: 1fr; }
-    @media (min-width: 860px) { .grid--split { grid-template-columns: 1.15fr 1fr; } }
-    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-    /* A canvas reports its own 300px default as min-content, which would stop a
-       grid column from ever shrinking below it on a narrow phone. */
-    .grid > * { min-width: 0; }
-    canvas { max-width: 100%; }
-    .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
-    .hint { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
-    .hint b { color: var(--ink); font-weight: 600; }
-    /* A live tail, not an archive: the newest events scroll inside the card so
-       the row keeps its height and the page does not stretch. */
-    .feed { max-height: 366px; overflow: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
-    th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    th { color: var(--muted); font-weight: 600; }
-    .status { color: var(--muted); font-size: 12px; margin-left: auto; }
-    /* Country bars are horizontal, so the box grows with the number of rows. */
-    .chart { position: relative; height: 180px; }
-    /* Icons: Lucide geometry, inlined as <symbol> and drawn with currentColor. */
-    .ico { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor;
-           stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .mark { width: 22px; height: 22px; flex: none; color: var(--accent); }
-    .cell { display: flex; align-items: center; gap: 7px; }
-    .cell .ico { color: var(--muted); }
-    .flag { width: 18px; height: 13px; flex: none; border-radius: 2px;
-            background: var(--line); object-fit: cover; }
-    .tile .l { display: flex; align-items: center; gap: 6px; }
-    .tile .ico { width: 13px; height: 13px; }
-    /* The icon alone stands for the device and the browser wherever the table
-       would otherwise need a horizontal scrollbar: on phones, and in the
-       720–920px range where the two-column row leaves this card narrow. */
-    @media (max-width: 560px), (min-width: 860px) and (max-width: 980px) {
-      .cell .t { display: none; }
-    }
-    @media (max-width: 420px) { th, td { padding: 6px 5px; font-size: 12px; } }
-  </style>
+  <script src="/app.js"></script>
 </head>
-<body>
-  <!-- Icon set: Lucide (ISC). Inlined as symbols — same-document <use> only,
-       never an external URL, so nothing can 404 on a deployed build. -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-signal" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.4" fill="currentColor" stroke="none"/><path d="M12.5 18a8.5 8.5 0 0 0-6.5-8.3"/><path d="M19 18A15 15 0 0 0 6 3.2"/></symbol>
-    <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></symbol>
-    <symbol id="i-smartphone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></symbol>
-    <symbol id="i-tablet" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></symbol>
-    <symbol id="i-chrome" viewBox="0 0 24 24"><path d="M10.88 21.94 15.46 14"/><path d="M21.17 8H12"/><path d="M3.95 6.06 8.54 14"/><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></symbol>
-    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"/></symbol>
-    <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/></symbol>
-    <symbol id="i-window" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></symbol>
-    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
-  </svg>
-
+<body class="dash">
   <div class="wrap">
     <header>
-      <h1><svg class="ico mark" aria-hidden="true"><use href="#i-signal"/></svg> Track Demo</h1>
+      <h1>
+        <svg class="ico mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.4" fill="currentColor" stroke="none"/><path d="M12.5 18a8.5 8.5 0 0 0-6.5-8.3"/><path d="M19 18A15 15 0 0 0 6 3.2"/></svg>
+        Track Demo
+      </h1>
       <button id="fire">Send a test event</button>
       <span class="status" id="status">loading…</span>
     </header>
@@ -115,11 +37,14 @@
           <thead><tr><th>time</th><th>type</th><th>country</th><th>device</th><th>browser</th></tr></thead>
           <tbody></tbody>
         </table></div>
+        <p class="hint">This is the live tail — the <a href="/events.html">full event log</a> has every event, with filters.</p>
       </div>
     </div>
   </div>
 
   <script>
+    const { esc, ico, DEVICE, BROWSER, countryName, countryCell, iconCell } = App;
+
     const AX = { color: '#8b98a5' }, GRID = { color: '#26303d' };
     const COUNT = { ...AX, precision: 0 }; // event counts are whole numbers — no 0.5 ticks
     const baseOpts = { plugins: { legend: { labels: { color: '#e6edf3' } } },
@@ -127,36 +52,9 @@
 
     let chHour, chDevice, chCountry;
 
-    // /api/track is public — event fields are untrusted input, never raw innerHTML.
-    const esc = v => String(v ?? '–').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-
-    const ico = (id, cls = 'ico') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
-    const DEVICE = { desktop: 'monitor', mobile: 'smartphone', tablet: 'tablet' };
-    // Semantic nods rather than trademarks: a compass for Safari, a flame for Firefox.
-    const BROWSER = { Chrome: 'chrome', Firefox: 'flame', Safari: 'compass', Edge: 'window' };
-
-    // ISO code → readable name, straight from the browser's own locale data.
-    const NAMES = typeof Intl.DisplayNames === 'function'
-      ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
-    const countryName = c => {
-      if (!c || c.length !== 2) return null;
-      try { return NAMES ? NAMES.of(c) : null; } catch { return null; }
-    };
-
-    function countryCell(code) {
-      if (!code || code.length !== 2) return `<span class="cell">${ico('globe')}${esc(code)}</span>`;
-      const name = countryName(code) || code;
-      return `<span class="cell" title="${esc(name)}">` +
-        `<img class="flag" src="https://flagcdn.com/w40/${code.toLowerCase()}.png" alt="" loading="lazy" width="18" height="13">` +
-        `${esc(code)}</span>`;
-    }
-    // The label is dropped on narrow screens (see .cell .t) — the icon carries it.
-    const iconCell = (map, value, fallback) =>
-      `<span class="cell" title="${esc(value)}">${ico(map[value] || fallback)}<span class="t">${esc(value)}</span></span>`;
-
-    // Refresh runs every 5s: mutate the existing data in place and update with
-    // no animation, otherwise every poll replays the whole chart animation.
-    // Untouched when the numbers are identical — nothing to redraw.
+    // Mutate the existing chart data and update with no animation, otherwise
+    // every refresh replays the whole entry animation. Untouched when the
+    // numbers are identical — nothing to redraw.
     function upsert(chart, ctxId, cfg) {
       if (!chart) return new Chart(document.getElementById(ctxId), cfg);
       const next = JSON.stringify([cfg.data.labels, cfg.data.datasets[0].data]);
@@ -173,7 +71,6 @@
         const r = await fetch('/api/stats', { cache: 'no-store' });
         const d = await r.json();
 
-        // tiles
         const leads = (d.byType.find(t => t.type === 'lead') || {}).n || 0;
         document.getElementById('tiles').innerHTML = [
           ['Total events', d.total, 'signal'],
@@ -219,8 +116,8 @@
 
         document.querySelector('#recent tbody').innerHTML =
           // Seconds are dropped on the narrowest phones — the last column of
-          // the table is worth more than a two-digit precision nobody reads.
-          d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString([], matchMedia('(max-width: 380px)').matches ? { hour12: false, hour: '2-digit', minute: '2-digit' } : { hour12: false })}</td><td>${esc(e.type)}</td>` +
+          // the table is worth more than a precision nobody reads.
+          d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString([], matchMedia('(min-width: 381px)').matches ? { hour12: false } : { hour12: false, hour: '2-digit', minute: '2-digit' })}</td><td>${esc(e.type)}</td>` +
             `<td>${countryCell(e.country)}</td><td>${iconCell(DEVICE, e.device, 'window')}</td>` +
             `<td>${iconCell(BROWSER, e.browser, 'globe')}</td></tr>`).join('');
 
