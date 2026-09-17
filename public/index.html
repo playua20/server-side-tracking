@@ -33,9 +33,15 @@
     .tile .n { font-size: 26px; font-weight: 700; }
     .tile .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
     .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 720px) { .grid { grid-template-columns: 2fr 1fr; } }
+    @media (min-width: 720px) {
+      .grid { grid-template-columns: 2fr 1fr; }
+      /* The events table needs more room than the country bars do. */
+      .grid--split { grid-template-columns: 1.15fr 1fr; }
+    }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
     .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
+    .hint { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
+    .hint b { color: var(--ink); font-weight: 600; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
     th { color: var(--muted); font-weight: 600; }
@@ -78,15 +84,16 @@
       <button id="fire">Send a test event</button>
       <span class="status" id="status">loading…</span>
     </header>
-    <p class="sub">A live server-side tracking pixel. Click the button — your <b>real</b> country and device are captured on the server and appear below in seconds. Open in another browser/phone to see more roll in.</p>
+    <p class="sub">A live server-side tracking pixel. Click the button — your <b>real</b> country and device are read on the server and show up below in seconds.</p>
 
     <div class="tiles" id="tiles"></div>
 
     <div class="grid">
       <div class="card"><h2>Events per hour</h2><canvas id="chHour" height="140"></canvas></div>
-      <div class="card"><h2>By device</h2><canvas id="chDevice" height="140"></canvas></div>
+      <div class="card"><h2>By device</h2><canvas id="chDevice" height="140"></canvas>
+        <p class="hint">Open this page on your phone — it arrives as <b>mobile</b>, read from the request itself.</p></div>
     </div>
-    <div class="grid" style="margin-top:16px">
+    <div class="grid grid--split" style="margin-top:16px">
       <div class="card"><h2>Top countries</h2><div class="chart" id="boxCountry"><canvas id="chCountry"></canvas></div></div>
       <div class="card" style="overflow:auto"><h2>Latest events</h2><table id="recent"><tbody></tbody></table></div>
     </div>
@@ -192,7 +199,7 @@
 
         document.querySelector('#recent tbody').innerHTML =
           '<tr><th>time</th><th>type</th><th>country</th><th>device</th><th>browser</th></tr>' +
-          d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString()}</td><td>${esc(e.type)}</td>` +
+          d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString([], { hour12: false })}</td><td>${esc(e.type)}</td>` +
             `<td>${countryCell(e.country)}</td><td>${iconCell(DEVICE, e.device, 'window')}</td>` +
             `<td>${iconCell(BROWSER, e.browser, 'globe')}</td></tr>`).join('');
 
