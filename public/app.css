@@ -1,0 +1,98 @@
+/* Shared by the dashboard (index.html) and the event log (events.html). */
+
+:root {
+  --bg: #0d1117; --panel: #161b22; --line: #26303d;
+  --ink: #e6edf3; --muted: #8b98a5; --accent: #3fb950; --info: #58a6ff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 8px; }
+h1 { font-size: 20px; margin: 0; display: flex; align-items: center; gap: 9px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 24px; max-width: 68ch; }
+.status { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+button {
+  background: var(--accent); color: #06210e; border: 0; border-radius: 6px;
+  padding: 9px 16px; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+button:disabled { opacity: .6; cursor: default; }
+button.ghost {
+  background: transparent; color: var(--ink);
+  border: 1px solid var(--line); font-weight: 500;
+}
+button.ghost:hover:not(:disabled) { border-color: var(--muted); }
+
+/* A link that sits among non-link text keeps a visible mark — the underline. */
+a { color: var(--info); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+.tile .n { font-size: 26px; font-weight: 700; }
+.tile .l { color: var(--muted); font-size: 12px; text-transform: uppercase;
+           letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
+.tile .ico { width: 13px; height: 13px; }
+
+.grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 720px) { .grid { grid-template-columns: 2fr 1fr; } }
+/* The events table needs more room than the country bars do, so this row
+   stays stacked (declared after .grid, to win over it) until there is
+   genuinely enough width for both, and then splits less unevenly. */
+.grid--split { grid-template-columns: 1fr; }
+@media (min-width: 860px) { .grid--split { grid-template-columns: 1.15fr 1fr; } }
+/* A canvas reports its own 300px default as min-content, which would stop a
+   grid column from ever shrinking below it on a narrow phone. */
+.grid > * { min-width: 0; }
+canvas { max-width: 100%; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
+.hint { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
+.hint b { color: var(--ink); font-weight: 600; }
+/* Country bars are horizontal, so the box grows with the number of rows. */
+.chart { position: relative; height: 180px; }
+/* A live tail, not an archive: the newest events scroll inside the card so
+   the row keeps its height and the page does not stretch. */
+.feed { max-height: 366px; overflow: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; }
+
+/* Icons: Lucide geometry (ISC), inlined per icon — no external file to 404,
+   no mask/url() indirection that breaks on a built site. */
+.ico { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor;
+       stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mark { width: 22px; height: 22px; flex: none; color: var(--accent); }
+.cell { display: flex; align-items: center; gap: 7px; }
+.cell .ico { color: var(--muted); }
+.flag { width: 18px; height: 13px; flex: none; border-radius: 2px;
+        background: var(--line); object-fit: cover; }
+/* The icon alone stands for the device and the browser wherever the table
+   would otherwise need a horizontal scrollbar: on phones, and in the
+   860–980px range where the two-column row leaves that card narrow. */
+@media (max-width: 560px), (min-width: 860px) and (max-width: 980px) {
+  .dash .cell .t { display: none; }
+}
+@media (max-width: 420px) { th, td { padding: 6px 5px; font-size: 12px; } }
+
+/* ── Event log ─────────────────────────────────────────────────────────── */
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+select {
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 10px; font: inherit; font-size: 14px; min-width: 160px;
+}
+.log { overflow-x: auto; }
+.more { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.count { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); font-size: 13px; padding: 18px 8px; }
+/* The log is the one place where a row's own time matters, so it wraps rather
+   than being cut — every other column stays on one line. */
+.log td:first-child { white-space: normal; }
