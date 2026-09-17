@@ -126,6 +126,19 @@ select {
   font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
+/* Footer links: a brand mark is a filled glyph, the Lucide set is stroked. */
+.ico.solid { fill: currentColor; stroke: none; }
+.foot {
+  display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center;
+  margin: 36px 0 0; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.foot a {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--muted); font-size: 13px; text-decoration: none;
+}
+.foot a:hover { color: var(--ink); }
+.foot a:hover span { text-decoration: underline; text-underline-offset: 3px; }
+
 /* Delivery outcomes: green is not the only state a real pipeline has. */
 .ok   { color: var(--accent); }
 .bad  { color: #f85149; }
