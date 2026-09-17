@@ -151,11 +151,30 @@ try {
   section('stats: the dashboard gets what it draws');
   {
     const [, st] = await get('/api/stats');
-    for (const k of ['total', 'byType', 'byCountry', 'byDevice', 'byHour', 'recent', 'conversions', 'byAd', 'capi', 'deliveries']) {
+    for (const k of ['total', 'visitors', 'byType', 'byCountry', 'byDevice', 'byHour', 'recent', 'conversions', 'byAd', 'capi', 'deliveries', 'sites']) {
       ok(`${k} present`, st[k] !== undefined);
     }
     ok('revenue counts approved conversions only', st.conversions.revenue >= 9.99);
     ok('the per-ad report includes this run\'s campaign', st.byAd.some(a => a.campaign === 'camp-' + TAG));
+  }
+
+  section('stats: the period and source filters actually filter');
+  {
+    const [, all] = await get('/api/stats?period=all');
+    const [, mine] = await get(`/api/stats?site=${TAG}`);
+    ok('this run\'s source is offered in the list', (all.sites || []).includes(TAG), JSON.stringify(all.sites));
+    ok('filtering by source narrows the totals', mine.total < all.total && mine.total >= 1, `${mine.total} of ${all.total}`);
+    ok('and only this run\'s events are counted', mine.byType.every(t => ['lead', 'pageview', 'click', 'test'].includes(t.type)) && mine.total === 1, JSON.stringify(mine.byType));
+    ok('its one event is the click we stored', mine.recent[0]?.site === TAG);
+
+    const [, hour] = await get('/api/stats?period=24h');
+    ok('a period never exceeds all time', hour.total <= all.total);
+    const [, junk] = await get('/api/stats?period=nonsense&site=<script>');
+    ok('rubbish filters fall back instead of failing', junk.period === '30d' && junk.site === null, JSON.stringify({ p: junk.period, s: junk.site }));
+
+    const [, logged] = await get(`/api/events?limit=50&site=${TAG}`);
+    ok('the log filters by source as well', logged.rows.length === 1 && logged.rows[0].site === TAG, `${logged.rows.length} row(s)`);
+    ok('the log offers the source list too', (logged.sites || []).includes(TAG));
   }
 } finally {
   section('cleanup');

@@ -164,8 +164,8 @@ pretends to be Meta; attaching credentials changes the destination, not the code
 ## Tests
 
 ```bash
-npm test            # 50 checks against the API
-npm run test:browser  # 25 checks in a real browser
+npm test            # 60 checks against the API
+npm run test:browser  # 28 checks in a real browser
 ```
 
 They run against a **deployed** instance — real HTTP, real Postgres, no mocks —
@@ -185,6 +185,18 @@ prints, open the delivered payload — while failing on any console error or any
 The suite has already earned its keep twice: it caught the dashboard sending no
 `fbclid` (so its own deliveries would have matched nobody), and a postback retry
 with fewer parameters erasing the hashed identifiers the first call had stored.
+
+## Period and source, like any tracker panel
+
+Two selectors sit above everything: the period first, then the source. Tiles,
+charts and tables all obey them, and both live in the URL so a filtered view can
+be linked to. Without them the dashboard reads fine with one source and turns to
+mush with two — every number becomes a blend of sites nobody asked to combine.
+
+The aggregation is one database function, `dashboard_stats(p_site, p_since)`
+(see `db/schema.sql`), which returns the whole payload as JSON. A view cannot
+take arguments, and pulling rows out to count them in JavaScript is the version
+that falls over once the table stops being small.
 
 ## The demo is tracked by its own pixel
 
