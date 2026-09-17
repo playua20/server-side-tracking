@@ -1,0 +1,91 @@
+# Track Demo — live server-side tracking dashboard
+
+A tiny **server-side tracking pixel + public live dashboard**. A one-line snippet
+on any lander sends events to a serverless endpoint, which records the visitor's
+**real** country/device (from the edge) into Postgres. A public dashboard renders
+it live — click a button and watch your own event appear in seconds.
+
+Portfolio piece for an **Affiliate / AdTech front-end developer**: it shows the
+full data path — event → server-side capture → DB → visualization — the same
+model as Google/Meta pixels, but self-owned and resistant to ad-blockers.
+
+## Stack (all free tier)
+
+- **Vercel** — hosting + Node serverless functions (`/api/*`), Fluid Compute.
+- **Supabase** — Postgres database (accessed server-side via `service_role`).
+- **Chart.js** — dashboard charts (CDN, no build step).
+
+## How it works — demo vs production
+
+Same principle in both, different stack. The **demo** (this repo) runs free and
+always-online on serverless; the **production** build for a real client runs on
+ordinary **PHP + MySQL shared hosting**.
+
+### 1. Demo — Node + Vercel + Supabase (this repo)
+
+```
+lander (t.js snippet)  ──POST──▶  /api/track (Node)  ──▶  Supabase / Postgres
+                                                               │
+   public dashboard   ◀──JSON──   /api/stats (Node)  ◀─────────┘
+   (index.html + Chart.js)        (aggregate views)
+```
+
+### 2. Production — PHP + MySQL on shared hosting (real client build)
+
+```
+lander (t.js snippet)  ──POST──▶  track.php  ──▶  MySQL (events table)
+                                                     │
+   dashboard.php       ◀──────────  MySQL  ◀─────────┘
+   (server-rendered + Chart.js)
+```
+
+**Why two stacks:** a portfolio demo must be *free and always-online*, which fits
+serverless (Node/Vercel) — nothing to keep alive, no auto-suspension. A paying
+client runs the same flow on ordinary **PHP + MySQL shared hosting**, where
+commercial use is allowed and the endpoint is always up.
+
+Geo/device are read from the edge (`x-vercel-ip-country`, user-agent) — no
+external lookup. The browser never talks to the database directly; only the
+server does, so the DB stays private (RLS on in Supabase; server-only creds in PHP).
+
+## Files
+
+| Path | What |
+|------|------|
+| `public/index.html` | the live dashboard (Chart.js) |
+| `public/t.js` | the tracking snippet (the "pixel") |
+| `api/track.js` | receives an event, resolves geo/device, writes to Supabase |
+| `api/stats.js` | returns aggregates for the dashboard |
+| `db/schema.sql` | table `events` + aggregate views — run once in Supabase |
+| `.env.local` | local secrets (gitignored) |
+
+---
+
+## Setup / deploy (next steps)
+
+1. **Supabase project** (org `playua20's Org`, FREE, region Europe, RLS enabled).
+2. In Supabase → **SQL Editor** → paste `db/schema.sql` → **Run**.
+3. Supabase → **Settings → API** → copy **Project URL** and **service_role key**.
+   - put them in `.env.local` locally, and
+   - in **Vercel → Project → Settings → Environment Variables**:
+     - `SUPABASE_URL`
+     - `SUPABASE_SERVICE_ROLE_KEY`
+4. `npm install` (installs `@supabase/supabase-js`).
+5. Deploy: push to GitHub → import in Vercel (or `vercel` CLI). Vercel serves
+   `public/` statically and `api/*` as functions.
+6. In `public/t.js`, set `ENDPOINT` to the deployed URL
+   (`https://<app>.vercel.app/api/track`) when embedding on other domains.
+   (On the demo page itself the relative `/api/track` already works.)
+7. Open the deployed site → click **“Send a test event”** → it appears live.
+
+### Embedding the snippet on a lander
+
+```html
+<script src="https://<app>.vercel.app/t.js" data-site="my-lander" defer></script>
+<!-- custom event, e.g. on form submit: -->
+<script>window.track('lead', { sub1: 'abc' });</script>
+```
+
+---
+
+_Status: skeleton complete; pending Supabase credentials + first deploy._
