@@ -38,6 +38,8 @@
     th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
     th { color: var(--muted); font-weight: 600; }
     .status { color: var(--muted); font-size: 12px; margin-left: auto; }
+    /* Country bars are horizontal, so the box grows with the number of rows. */
+    .chart { position: relative; height: 180px; }
   </style>
 </head>
 <body>
@@ -56,15 +58,16 @@
       <div class="card"><h2>By device</h2><canvas id="chDevice" height="140"></canvas></div>
     </div>
     <div class="grid" style="margin-top:16px">
-      <div class="card"><h2>Top countries</h2><canvas id="chCountry" height="140"></canvas></div>
+      <div class="card"><h2>Top countries</h2><div class="chart" id="boxCountry"><canvas id="chCountry"></canvas></div></div>
       <div class="card" style="overflow:auto"><h2>Latest events</h2><table id="recent"><tbody></tbody></table></div>
     </div>
   </div>
 
   <script>
     const AX = { color: '#8b98a5' }, GRID = { color: '#26303d' };
+    const COUNT = { ...AX, precision: 0 }; // event counts are whole numbers — no 0.5 ticks
     const baseOpts = { plugins: { legend: { labels: { color: '#e6edf3' } } },
-      scales: { x: { ticks: AX, grid: GRID }, y: { ticks: AX, grid: GRID, beginAtZero: true } } };
+      scales: { x: { ticks: AX, grid: GRID }, y: { ticks: COUNT, grid: GRID, beginAtZero: true } } };
 
     let chHour, chDevice, chCountry;
 
@@ -99,21 +102,39 @@
           ['Devices', d.byDevice.length],
         ].map(([l, n]) => `<div class="tile"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
 
+        // Short upright labels ("21:00"), thinned out by Chart.js; the tooltip
+        // carries the full date, kept on the chart so it survives a refresh.
+        const hourFull = d.byHour.map(h => new Date(h.hour).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
         chHour = upsert(chHour, 'chHour', {
           type: 'line',
-          data: { labels: d.byHour.map(h => new Date(h.hour).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' })),
+          data: { labels: d.byHour.map(h => new Date(h.hour).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
             datasets: [{ data: d.byHour.map(h => h.n), borderColor: '#3fb950', backgroundColor: 'rgba(63,185,80,.15)', fill: true, tension: .3 }] },
-          options: { ...baseOpts, plugins: { legend: { display: false } } }
+          options: { ...baseOpts,
+            plugins: { legend: { display: false },
+              tooltip: { callbacks: { title: i => (i[0].chart.$full || [])[i[0].dataIndex] || i[0].label } } },
+            scales: { ...baseOpts.scales,
+              x: { ticks: { ...AX, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 }, grid: GRID } }
+          }
         });
+        chHour.$full = hourFull;
         chDevice = upsert(chDevice, 'chDevice', {
           type: 'doughnut',
           data: { labels: d.byDevice.map(x => x.device), datasets: [{ data: d.byDevice.map(x => x.n), backgroundColor: ['#3fb950', '#58a6ff', '#d29922', '#8b98a5'] }] },
           options: { plugins: { legend: { labels: { color: '#e6edf3' } } } }
         });
+        // Horizontal: country labels stay upright however many arrive, and the
+        // box grows by row instead of squeezing bars thinner.
+        document.getElementById('boxCountry').style.height =
+          Math.max(180, d.byCountry.length * 30 + 26) + 'px';
         chCountry = upsert(chCountry, 'chCountry', {
           type: 'bar',
-          data: { labels: d.byCountry.map(x => x.country), datasets: [{ data: d.byCountry.map(x => x.n), backgroundColor: '#58a6ff' }] },
-          options: { ...baseOpts, plugins: { legend: { display: false } } }
+          data: { labels: d.byCountry.map(x => x.country), datasets: [{ data: d.byCountry.map(x => x.n), backgroundColor: '#58a6ff', borderRadius: 2, barThickness: 18 }] },
+          options: {
+            indexAxis: 'y', maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { ticks: COUNT, grid: GRID, beginAtZero: true },
+                      y: { ticks: AX, grid: { display: false } } }
+          }
         });
 
         document.querySelector('#recent tbody').innerHTML =
