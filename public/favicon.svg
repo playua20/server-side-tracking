@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- An event leaving the page: one dot, two waves. No plate — transparent ground. -->
+  <g fill="none" stroke="#3fb950" stroke-width="4.4" stroke-linecap="round">
+    <path d="M14.6 29.4A12.9 12.9 0 0 0 4 19"/>
+    <path d="M27.6 29.4A25.9 25.9 0 0 0 4 6"/>
+  </g>
+  <circle cx="5.2" cy="28.2" r="4.2" fill="#3fb950"/>
+</svg>
