@@ -28,17 +28,24 @@
       padding: 9px 16px; font-weight: 600; font-size: 14px; cursor: pointer;
     }
     button:disabled { opacity: .6; cursor: default; }
-    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
     .tile .n { font-size: 26px; font-weight: 700; }
     .tile .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
     .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 720px) {
       .grid { grid-template-columns: 2fr 1fr; }
-      /* The events table needs more room than the country bars do. */
-      .grid--split { grid-template-columns: 1.15fr 1fr; }
     }
+    /* The events table needs more room than the country bars do, so this row
+       stays stacked (declared after .grid, to win over it) until there is
+       genuinely enough width for both, and then splits less unevenly. */
+    .grid--split { grid-template-columns: 1fr; }
+    @media (min-width: 860px) { .grid--split { grid-template-columns: 1.15fr 1fr; } }
     .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    /* A canvas reports its own 300px default as min-content, which would stop a
+       grid column from ever shrinking below it on a narrow phone. */
+    .grid > * { min-width: 0; }
+    canvas { max-width: 100%; }
     .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
     .hint { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
     .hint b { color: var(--ink); font-weight: 600; }
@@ -58,9 +65,13 @@
             background: var(--line); object-fit: cover; }
     .tile .l { display: flex; align-items: center; gap: 6px; }
     .tile .ico { width: 13px; height: 13px; }
-    /* Narrow screens: the icon alone stands for the device and the browser,
-       which keeps the events table inside the viewport. */
-    @media (max-width: 560px) { .cell .t { display: none; } }
+    /* The icon alone stands for the device and the browser wherever the table
+       would otherwise need a horizontal scrollbar: on phones, and in the
+       720–920px range where the two-column row leaves this card narrow. */
+    @media (max-width: 560px), (min-width: 860px) and (max-width: 980px) {
+      .cell .t { display: none; }
+    }
+    @media (max-width: 420px) { th, td { padding: 6px 5px; font-size: 12px; } }
   </style>
 </head>
 <body>
@@ -199,7 +210,9 @@
 
         document.querySelector('#recent tbody').innerHTML =
           '<tr><th>time</th><th>type</th><th>country</th><th>device</th><th>browser</th></tr>' +
-          d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString([], { hour12: false })}</td><td>${esc(e.type)}</td>` +
+          // Seconds are dropped on the narrowest phones — the last column of
+          // the table is worth more than a two-digit precision nobody reads.
+          d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString([], matchMedia('(max-width: 380px)').matches ? { hour12: false, hour: '2-digit', minute: '2-digit' } : { hour12: false })}</td><td>${esc(e.type)}</td>` +
             `<td>${countryCell(e.country)}</td><td>${iconCell(DEVICE, e.device, 'window')}</td>` +
             `<td>${iconCell(BROWSER, e.browser, 'globe')}</td></tr>`).join('');
 
