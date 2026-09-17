@@ -161,6 +161,31 @@ pretends to be Meta; attaching credentials changes the destination, not the code
 - **A delivery never breaks a postback.** The network gets its `200` whatever the
   platform is doing; the delivery outcome is reported alongside, not instead.
 
+## Tests
+
+```bash
+npm test            # 50 checks against the API
+npm run test:browser  # 25 checks in a real browser
+```
+
+They run against a **deployed** instance — real HTTP, real Postgres, no mocks —
+and delete every row they create, so the public demo is not left holding test
+data. Both take a base URL as an argument, so a preview deployment can be
+checked the same way. They need `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (the
+assertions read the database), `POSTBACK_TOKEN` and `CRON_TOKEN`.
+
+`tests/api.mjs` covers the event guards, keyset pagination walking the whole
+table exactly once, the stand-in's contract, postback validation, attribution,
+idempotency, reversal, the payload's shape and hashing, the retry sweeper and
+the stats response. `tests/browser.mjs` walks a visitor's path at two widths —
+arrive on a landing URL with ad macros, send a lead, fire the postback the page
+prints, open the delivered payload — while failing on any console error or any
+4xx/5xx, and sweeps 19 viewport widths for sideways scrolling.
+
+The suite has already earned its keep twice: it caught the dashboard sending no
+`fbclid` (so its own deliveries would have matched nobody), and a postback retry
+with fewer parameters erasing the hashed identifiers the first call had stored.
+
 ## Two details worth a second look
 
 **The log pages by cursor, not `offset`.** `/api/events` takes the last row seen as
@@ -197,6 +222,7 @@ should not depend on the deployment it watches.
 | `api/keepalive.js` | one cheap query, called by the cron below |
 | `cron/` | Cloudflare Worker that pings keepalive every 3 days |
 | `db/schema.sql` | table `events` + aggregate views — run in Supabase (idempotent) |
+| `tests/api.mjs`, `tests/browser.mjs` | end-to-end suites, run against a deployment |
 | `.env.local` | local secrets (gitignored) |
 
 **Worth a look:** `api/track.js` — geo/device resolution, the guards and the hashed

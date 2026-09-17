@@ -23,7 +23,11 @@ const ok = (label, cond, extra = '') => {
 };
 
 const TAG = 'btest-' + Math.random().toString(36).slice(2, 8);
-const browser = await chromium.launch();
+// CHROME_PATH lets the suite use a browser that is already on the machine,
+// instead of making `npx playwright install` a prerequisite.
+const browser = await chromium.launch(
+  process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}
+);
 
 try {
   for (const [label, width] of [['desktop', 1280], ['phone', 390]]) {
