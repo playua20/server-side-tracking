@@ -48,10 +48,13 @@ try {
     ok('the click id comes from the URL', (await page.locator('#cid').textContent()) === clickid);
     ok('the status line is not an error', !(await page.locator('#status').textContent()).startsWith('error'));
 
+    // Wait for the row itself, not for a duration: the page refreshes once
+    // immediately and again a beat later, and the write can land in between.
     await page.locator('#lead').click();
-    await page.waitForFunction(() => document.querySelector('#recent tbody tr'), null, { timeout: 20000 });
-    await page.waitForTimeout(1500);
-    ok('the lead appears in the live tail', (await page.locator('#recent tbody tr').first().textContent()).includes('lead'));
+    const landed = await page.waitForFunction(
+      () => document.querySelector('#recent tbody tr')?.textContent.includes('lead'),
+      null, { timeout: 20000 }).then(() => true, () => false);
+    ok('the lead appears in the live tail', landed);
 
     // The network's half, fired from outside the browser using the page's own command.
     const url = (await page.locator('#pbCmd').textContent()).match(/https?:\/\/[^"]+/)[0];
