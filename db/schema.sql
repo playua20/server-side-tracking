@@ -165,6 +165,80 @@ create or replace view stats_by_ad with (security_invoker = true) as
   group by 1, 2
   order by revenue desc, conversions desc;
 
+-- ─── One call for the whole dashboard, with the filters applied ───────────
+-- The views above answer "everything, for all time", which is what a single
+-- source needs and no more. A panel has a period and a source selector, and
+-- those cannot be baked into a view — so the aggregation moves here, where the
+-- filters are arguments and the work stays in the database. One round trip
+-- instead of ten, and it keeps working when the table is not tiny.
+create or replace function dashboard_stats(p_site text default null,
+                                           p_since timestamptz default null)
+returns jsonb
+language sql
+stable
+security invoker
+as $$
+  with ev as (
+    select * from events
+    where (p_site is null or site = p_site)
+      and (p_since is null or created_at >= p_since)
+  ), cv as (
+    select c.* from conversions c
+    -- A conversion belongs to the source of the click it was matched to.
+    where (p_site is null or exists (
+            select 1 from events e where e.id = c.event_id and e.site = p_site))
+      and (p_since is null or c.created_at >= p_since)
+  )
+  select jsonb_build_object(
+    'total',    (select count(*) from ev),
+    'visitors', (select count(distinct ip_hash) from ev),
+    'byType',   (select coalesce(jsonb_agg(jsonb_build_object('type', type, 'n', n) order by n desc), '[]')
+                 from (select type, count(*)::int as n from ev group by type) t),
+    'byCountry',(select coalesce(jsonb_agg(jsonb_build_object('country', country, 'n', n) order by n desc), '[]')
+                 from (select coalesce(country, '??') as country, count(*)::int as n
+                       from ev group by 1 order by 2 desc limit 12) t),
+    'byDevice', (select coalesce(jsonb_agg(jsonb_build_object('device', device, 'n', n) order by n desc), '[]')
+                 from (select coalesce(device, 'unknown') as device, count(*)::int as n from ev group by 1) t),
+    'byHour',   (select coalesce(jsonb_agg(jsonb_build_object('hour', hour, 'n', n) order by hour), '[]')
+                 from (select date_trunc('hour', created_at) as hour, count(*)::int as n
+                       from ev group by 1 order by 1 desc limit 48) t),
+    'sites',    (select coalesce(jsonb_agg(site order by site), '[]')
+                 from (select distinct site from events where site is not null) s),
+    'recent',   (select coalesce(jsonb_agg(r), '[]') from (
+                   select type, site, country, device, browser, created_at
+                   from ev order by created_at desc limit 30) r),
+    'conversions', (select jsonb_build_object(
+                     'n', count(*),
+                     'approved', count(*) filter (where status = 'approved'),
+                     'pending',  count(*) filter (where status = 'pending'),
+                     'rejected', count(*) filter (where status = 'rejected'),
+                     'orphans',  count(*) filter (where not matched),
+                     'revenue',  coalesce(sum(payout) filter (where status = 'approved'), 0)) from cv),
+    'byAd',     (select coalesce(jsonb_agg(to_jsonb(x) order by x.revenue desc, x.conversions desc), '[]') from (
+                   select coalesce(sub1, '—') as campaign,
+                          coalesce(sub3, '—') as ad,
+                          count(*)::int       as conversions,
+                          coalesce(sum(payout) filter (where status = 'approved'), 0)::numeric(12,2) as revenue
+                   from cv group by 1, 2 order by revenue desc limit 10) x),
+    'capi',     (select jsonb_build_object(
+                   'n', count(*),
+                   'delivered', count(*) filter (where status = 'delivered'),
+                   'failed',    count(*) filter (where status = 'failed'),
+                   'skipped',   count(*) filter (where status = 'skipped'),
+                   'avg_ms',    coalesce(round(avg(latency_ms) filter (where status = 'delivered')), 0))
+                 from capi_deliveries d
+                 where p_site is null or exists (
+                   select 1 from cv where cv.id = d.conversion_id)),
+    'deliveries', (select coalesce(jsonb_agg(d order by (d->>'created_at') desc), '[]') from (
+                   select to_jsonb(x) as d from (
+                     select id, event_id, event_name, destination, status, http_status,
+                            attempts, latency_ms, duplicates, request, response, created_at
+                     from capi_deliveries
+                     where p_site is null or exists (select 1 from cv where cv.id = conversion_id)
+                     order by created_at desc limit 10) x) y)
+  );
+$$;
+
 -- RLS stays ON (enabled at project creation). No policies are added on purpose:
 -- only the server's service_role key touches this data, and it bypasses RLS.
 -- The public/anon role therefore has no access — which is exactly what we want.

@@ -36,6 +36,24 @@
       lander sends: a <b>click</b> on the offer, and a <b>lead</b> when the form is submitted.
       A lead is what a network later settles with a postback, and that is where the money appears.</p>
 
+    <!-- Period first, then source: the order every tracker panel uses, and
+         everything below obeys both. Both live in the URL, so a filtered view
+         can be linked to. -->
+    <div class="filters">
+      <label class="field"><span>Period</span>
+        <select id="fPeriod">
+          <option value="24h">last 24 hours</option>
+          <option value="7d">last 7 days</option>
+          <option value="30d" selected>last 30 days</option>
+          <option value="all">all time</option>
+        </select>
+      </label>
+      <label class="field"><span>Source</span>
+        <select id="fSite"><option value="">all sources</option></select>
+      </label>
+      <span class="count" id="scope"></span>
+    </div>
+
     <div class="tiles" id="tiles"></div>
 
     <div class="grid">
@@ -125,10 +143,32 @@
       return chart;
     }
 
+    // Filter state: read from the URL on arrival, written back on every change.
+    const filters = new URLSearchParams(location.search);
+    const period = () => filters.get('period') || '30d';
+    const site = () => filters.get('site') || '';
+
+    function fillSites(list) {
+      const el = document.getElementById('fSite');
+      if (el.dataset.filled === String(list.length)) return;  // don't fight the user mid-click
+      el.dataset.filled = String(list.length);
+      el.innerHTML = '<option value="">all sources</option>' +
+        list.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      el.value = site();
+    }
+
     async function load() {
       try {
-        const r = await fetch('/api/stats', { cache: 'no-store' });
+        const qs = new URLSearchParams({ period: period() });
+        if (site()) qs.set('site', site());
+        const r = await fetch('/api/stats?' + qs, { cache: 'no-store' });
         const d = await r.json();
+        if (d.error) throw new Error(d.error);
+
+        fillSites(d.sites || []);
+        document.getElementById('fPeriod').value = d.period || '30d';
+        document.getElementById('scope').textContent =
+          `${d.total} events · ${site() ? site() : 'all sources'}`;
 
         const leads = (d.byType.find(t => t.type === 'lead') || {}).n || 0;
         const c = d.conversions || {};
@@ -271,6 +311,14 @@
       }
       setTimeout(() => { document.getElementById('copied').textContent = ''; }, 2500);
     });
+
+    for (const [id, key] of [['fPeriod', 'period'], ['fSite', 'site']]) {
+      document.getElementById(id).addEventListener('change', (ev) => {
+        ev.target.value ? filters.set(key, ev.target.value) : filters.delete(key);
+        history.replaceState(null, '', filters.toString() ? '?' + filters : location.pathname);
+        refresh();
+      });
+    }
 
     // Delegated, because the log is re-rendered on every refresh.
     document.getElementById('capi').addEventListener('click', (ev) => {

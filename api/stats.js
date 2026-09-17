@@ -5,47 +5,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Read-only aggregates for the public dashboard. Runs server-side (service_role),
-// so the browser never touches Supabase directly.
+// A panel has a period and a source selector, and everything below obeys them —
+// so the aggregation lives in one database function that takes both as
+// arguments (db/schema.sql → dashboard_stats). One round trip, and the counting
+// happens where the rows are.
+const PERIODS = { '24h': 24, '7d': 24 * 7, '30d': 24 * 30, all: null };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const [total, byType, byCountry, byDevice, byHour, recent, conv, byAd, capi, overview, deliveries] = await Promise.all([
-      supabase.from('events').select('*', { count: 'exact', head: true }),
-      supabase.from('stats_by_type').select('*'),
-      supabase.from('stats_by_country').select('*').limit(12),
-      supabase.from('stats_by_device').select('*'),
-      supabase.from('stats_by_hour').select('*').limit(48),
-      supabase.from('events')
-        .select('type,site,country,device,browser,created_at')
-        .order('created_at', { ascending: false })
-        .limit(30), // a scrollable tail of the newest events, not a full archive
-      supabase.from('stats_conversions').select('*').maybeSingle(),
-      supabase.from('stats_by_ad').select('*').limit(10),
-      supabase.from('stats_capi').select('*').maybeSingle(),
-      supabase.from('stats_overview').select('*').maybeSingle(),
-      supabase.from('capi_deliveries')
-        .select('id,event_id,event_name,destination,status,http_status,attempts,latency_ms,duplicates,request,response,created_at')
-        .order('created_at', { ascending: false })
-        .limit(10),
-    ]);
+    const q = req.query || {};
+    const period = Object.hasOwn(PERIODS, q.period) ? q.period : '30d';
+    const hours = PERIODS[period];
+    // The site name comes from the page's own data-site, so it is untrusted:
+    // keep it to the shape a site name actually has.
+    const site = /^[\w.-]{1,64}$/.test(q.site || '') ? q.site : null;
 
-    res.status(200).json({
-      total:     total.count || 0,
-      visitors:  overview?.data?.visitors ?? 0,
-      byType:    byType.data || [],
-      byCountry: byCountry.data || [],
-      byDevice:  byDevice.data || [],
-      byHour:    (byHour.data || []).reverse(), // view is newest-first; chart wants oldest-first
-      recent:    recent.data || [],
-      // The money side: postback-created conversions, and which ad they came from.
-      conversions: conv?.data || { n: 0, approved: 0, pending: 0, rejected: 0, orphans: 0, revenue: 0 },
-      byAd:      byAd?.data || [],
-      // The outward side: what we told the ad platform, and what it answered.
-      capi:      capi?.data || { n: 0, delivered: 0, failed: 0, skipped: 0, avg_ms: 0 },
-      deliveries: deliveries?.data || [],
+    const { data, error } = await supabase.rpc('dashboard_stats', {
+      p_site: site,
+      p_since: hours ? new Date(Date.now() - hours * 3600e3).toISOString() : null,
     });
+    if (error) throw error;
+
+    res.status(200).json({ ...data, period, site });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     const limit = Math.min(MAX_LIMIT, Math.max(1, Number(q.limit) || DEFAULT_LIMIT));
     const type = /^[a-z][a-z0-9_-]{0,31}$/.test(q.type || '') ? q.type : null;
     const country = /^[A-Z]{2}$/.test(q.country || '') ? q.country : null;
+    const site = /^[\w.-]{1,64}$/.test(q.site || '') ? q.site : null;
     const cursor = parseCursor(q.before);
 
     // One row more than asked for: its presence is what tells us there is a
@@ -57,6 +58,7 @@ export default async function handler(req, res) {
 
     if (type) rows = rows.eq('type', type);
     if (country) rows = rows.eq('country', country);
+    if (site) rows = rows.eq('site', site);
     if (cursor) {
       rows = rows.or(`created_at.lt.${cursor.ts},and(created_at.eq.${cursor.ts},id.lt.${cursor.id})`);
     }
@@ -70,11 +72,13 @@ export default async function handler(req, res) {
         let c = supabase.from('events').select('*', { count: 'exact', head: true });
         if (type) c = c.eq('type', type);
         if (country) c = c.eq('country', country);
+        if (site) c = c.eq('site', site);
         return c;
       })(),
+      supabase.from('events').select('site').not('site', 'is', null),
     ] : [];
 
-    const [page, types, countries, total] = await Promise.all([rows, ...extras]);
+    const [page, types, countries, total, sites] = await Promise.all([rows, ...extras]);
     if (page.error) throw page.error;
 
     const hasMore = page.data.length > limit;
@@ -87,6 +91,7 @@ export default async function handler(req, res) {
         total: total?.count ?? null,
         types: (types?.data || []).map(t => t.type),
         countries: (countries?.data || []).map(c => c.country).filter(c => /^[A-Z]{2}$/.test(c)),
+        sites: [...new Set((sites?.data || []).map(s => s.site))].sort(),
       } : {}),
     });
   } catch (e) {

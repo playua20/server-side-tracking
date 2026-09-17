@@ -27,6 +27,9 @@
       Paging is by cursor, so rows never repeat or go missing while new events keep arriving.</p>
 
     <div class="filters">
+      <label class="field"><span>Source</span>
+        <select id="fSite"><option value="">all sources</option></select>
+      </label>
       <label class="field"><span>Type</span>
         <select id="fType"><option value="">all types</option></select>
       </label>
@@ -92,6 +95,7 @@
       $('more').disabled = true;
       try {
         const p = new URLSearchParams({ limit: '50' });
+        if ($('fSite').value) p.set('site', $('fSite').value);
         if ($('fType').value) p.set('type', $('fType').value);
         if ($('fCountry').value) p.set('country', $('fCountry').value);
         if (!reset && next) p.set('before', next);
@@ -107,6 +111,7 @@
 
         if (reset) {
           total = d.total;
+          fillSelect($('fSite'), d.sites || [], 'sources');
           fillSelect($('fType'), d.types || [], 'types');
           fillSelect($('fCountry'), d.countries || [], 'countries');
         }
@@ -129,6 +134,7 @@
     // filtered log can be linked to and survives a reload.
     function applyFilters() {
       const p = new URLSearchParams();
+      if ($('fSite').value) p.set('site', $('fSite').value);
       if ($('fType').value) p.set('type', $('fType').value);
       if ($('fCountry').value) p.set('country', $('fCountry').value);
       history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
@@ -136,13 +142,17 @@
       loadPage(true);
     }
 
+    $('fSite').addEventListener('change', applyFilters);
     $('fType').addEventListener('change', applyFilters);
     $('fCountry').addEventListener('change', applyFilters);
     $('more').addEventListener('click', () => loadPage(false));
 
+    // A filtered log arrives with its filters in the URL: preselect them before
+    // the first request, so the request itself is already filtered.
     const start = new URLSearchParams(location.search);
-    if (start.get('type')) $('fType').innerHTML = `<option value="${esc(start.get('type'))}" selected></option>`;
-    if (start.get('country')) $('fCountry').innerHTML = `<option value="${esc(start.get('country'))}" selected></option>`;
+    for (const [key, id] of [['site', 'fSite'], ['type', 'fType'], ['country', 'fCountry']]) {
+      if (start.get(key)) $(id).innerHTML = `<option value="${esc(start.get(key))}" selected></option>`;
+    }
     loadPage(true);
   </script>
 </body>
