@@ -75,6 +75,41 @@ try {
     await page.close();
   }
 
+  console.log('\nthe snippet on a page that is not ours');
+  {
+    // A stand-in lander: nothing but the snippet and a form, on a blank origin,
+    // which is also the cross-domain case.
+    const site = TAG + '-lander';
+    const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+    await page.goto('about:blank');
+    await page.setContent(`<form id="order" name="order"><input name="email"><button>send</button></form>
+      <script src="${BASE}/t.js" data-site="${site}" data-lead-form="#order" defer></script>`);
+    await page.waitForFunction(() => typeof window.track === 'function', null, { timeout: 15000 });
+    ok('the snippet exposes window.track', true);
+
+    // Stop the navigation only — our handler runs on capture, so it has fired.
+    await page.evaluate(() => document.addEventListener('submit', e => e.preventDefault()));
+    await page.locator('#order button').click();
+
+    const waitFor = async (type) => {
+      for (let i = 0; i < 20; i++) {
+        const { data } = await db.from('events').select('type,site,device,country').eq('site', site).eq('type', type).maybeSingle();
+        if (data) return data;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      return null;
+    };
+    const lead = await waitFor('lead');
+    ok('submitting the form records a lead', Boolean(lead), JSON.stringify(lead));
+
+    await page.evaluate(() => window.track('click', { sub1: 'manual-call' }));
+    ok('a manual window.track call records too', Boolean(await waitFor('click')));
+
+    const del = await db.from('events').delete().eq('site', site).select('id');
+    console.log(`  (removed ${del.data?.length || 0} events from the stand-in lander)`);
+    await page.close();
+  }
+
   console.log('\nno sideways scrolling, 320px to 1440px');
   {
     const bad = [];

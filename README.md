@@ -260,11 +260,43 @@ rate limiter; `db/schema.sql` — the aggregate views and why they are `security
 
 ### Embedding the snippet on a lander
 
+One line records the pageview and reads `clickid`, `fbclid` and the `sub` values
+out of the landing URL:
+
 ```html
 <script src="https://server-side-pixel.vercel.app/t.js" data-site="my-lander" defer></script>
-<!-- custom event, e.g. on form submit: -->
-<script>window.track('lead', { sub1: 'abc' });</script>
 ```
+
+**Wiring it to the form.** Point the snippet at the form and its submit becomes a
+lead — no handler to write:
+
+```html
+<script src="https://server-side-pixel.vercel.app/t.js"
+        data-site="my-lander" data-lead-form="#order" defer></script>
+```
+
+Or call it yourself, which is what you want when the form posts over AJAX and
+you only count a lead once the server has accepted it:
+
+```html
+<script>
+  fetch('/order.php', { method: 'POST', body: data })
+    .then(r => r.json())
+    .then(res => { if (res.ok && window.track) window.track('lead', { sub5: 'form-main' }); });
+</script>
+```
+
+Two things worth getting right on a real lander:
+
+- **`window.track` may not exist yet.** The snippet is deferred, so guard the call
+  (`window.track && window.track(...)`) or use `data-lead-form`, which attaches
+  as soon as the snippet loads and fires on capture — even if the page's own
+  handler stops propagation.
+- **The click id has to survive the journey.** `t.js` reads it from the URL, so a
+  lead sent from a thank-you page has no `clickid` unless you carry it there —
+  in a hidden field, in the redirect, or in `sessionStorage`. Without it the
+  network's postback has nothing to match, and the conversion lands as
+  `matched: false`.
 
 ---
 

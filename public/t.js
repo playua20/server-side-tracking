@@ -59,4 +59,17 @@
   window.track = function (type, extra) {
     send(Object.assign(base(type || "event"), extra || {}));
   };
+
+  // Optional: data-lead-form="#order" wires a real form's submit to a lead,
+  // so a lander needs no handler of its own. sendBeacon is built for exactly
+  // this moment — it survives the page unloading as the form navigates away.
+  var sel = script && script.getAttribute("data-lead-form");
+  if (sel) {
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (form && form.matches && form.matches(sel)) {
+        window.track("lead", { sub5: form.getAttribute("name") || form.id || null });
+      }
+    }, true);  // capture: fires even if the page's own handler stops propagation
+  }
 })();
