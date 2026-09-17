@@ -71,9 +71,18 @@
     // /api/track is public — event fields are untrusted input, never raw innerHTML.
     const esc = v => String(v ?? '–').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+    // Refresh runs every 5s: mutate the existing data in place and update with
+    // no animation, otherwise every poll replays the whole chart animation.
+    // Untouched when the numbers are identical — nothing to redraw.
     function upsert(chart, ctxId, cfg) {
-      if (chart) { chart.data = cfg.data; chart.update(); return chart; }
-      return new Chart(document.getElementById(ctxId), cfg);
+      if (!chart) return new Chart(document.getElementById(ctxId), cfg);
+      const next = JSON.stringify([cfg.data.labels, cfg.data.datasets[0].data]);
+      if (chart.$sig === next) return chart;
+      chart.$sig = next;
+      chart.data.labels = cfg.data.labels;
+      chart.data.datasets[0].data = cfg.data.datasets[0].data;
+      chart.update('none');
+      return chart;
     }
 
     async function load() {
