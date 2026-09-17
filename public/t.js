@@ -26,9 +26,14 @@
 
   // The _fbp cookie is set by Facebook's browser pixel; passing it along lets a
   // server-side event be matched to the same person. Absent? Then it is absent.
+  // Reading it THROWS on an opaque origin — a sandboxed iframe, a document
+  // written at runtime — and an unguarded read there would take the whole
+  // snippet down with it, on someone else's page.
   function cookie(name) {
-    var m = document.cookie.match("(?:^|; )" + name + "=([^;]*)");
-    return m ? decodeURIComponent(m[1]) : null;
+    try {
+      var m = document.cookie.match("(?:^|; )" + name + "=([^;]*)");
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch (e) { return null; }
   }
 
   function base(type) {
@@ -59,9 +64,13 @@
   // inflate every figure on the dashboard.
   if (!navigator.webdriver) send(base("pageview"));
 
-  // Manual events: track("lead", { sub1: "..." })
+  // Manual events: track("lead", { sub1: "..." }). Never throws into the host
+  // page: this runs inside somebody's form handler, and an exception there
+  // would break their submit, not just our tracking.
   window.track = function (type, extra) {
-    send(Object.assign(base(type || "event"), extra || {}));
+    try {
+      send(Object.assign(base(type || "event"), extra || {}));
+    } catch (e) { /* the page's own work matters more than our event */ }
   };
 
   // Optional: data-lead-form="#order" wires a real form's submit to a lead,
