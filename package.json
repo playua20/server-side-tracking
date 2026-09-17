@@ -4,7 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Server-side tracking demo — public live dashboard (Vercel + Node + Supabase)",
+  "scripts": {
+    "test": "node --env-file=.env.local tests/api.mjs",
+    "test:browser": "node --env-file=.env.local tests/browser.mjs"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.47.0"
   }
 }

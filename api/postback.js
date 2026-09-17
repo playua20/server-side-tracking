@@ -81,21 +81,31 @@ export default async function handler(req, res) {
       .limit(1)
       .maybeSingle();
 
+    // Only the columns present here are written. That matters on a retry: a
+    // network often repeats a postback with fewer parameters, and a row built
+    // with explicit nulls would erase what the first call had established —
+    // the hashed identifiers, or the attribution, if the click has since been
+    // pruned. Absent stays absent instead of overwriting.
     const row = {
-      txid, clickid, status, payout, currency,
-      // Hashed at the door: if a network passes the lead's e-mail or phone, the
-      // readable value is never written anywhere — not even for a moment.
-      em_hash: hashEmail(str(p.email, 255)),
-      ph_hash: hashPhone(str(p.phone, 64)),
-      event_id: click?.id ?? null,
-      sub1: click?.sub1 ?? null,
-      sub2: click?.sub2 ?? null,
-      sub3: click?.sub3 ?? null,
-      country: click?.country ?? null,
-      matched: Boolean(click),
-      ip_hash,
+      txid, clickid, status, payout, currency, ip_hash,
       updated_at: new Date().toISOString(),
     };
+
+    // Hashed at the door: if a network passes the lead's e-mail or phone, the
+    // readable value is never written anywhere — not even for a moment.
+    const em_hash = hashEmail(str(p.email, 255));
+    const ph_hash = hashPhone(str(p.phone, 64));
+    if (em_hash) row.em_hash = em_hash;
+    if (ph_hash) row.ph_hash = ph_hash;
+
+    if (click) {
+      row.event_id = click.id;
+      row.sub1 = click.sub1;
+      row.sub2 = click.sub2;
+      row.sub3 = click.sub3;
+      row.country = click.country;
+      row.matched = true;
+    }
 
     // The retry case. onConflict on the unique txid turns a repeated postback
     // into an update of the same conversion — which is also how a real status
@@ -122,7 +132,7 @@ export default async function handler(req, res) {
       ok: true,
       conversion_id: data.id,
       status,
-      matched: row.matched,             // false = a postback for a click we never saw
+      matched: Boolean(click),          // false = a postback for a click we never saw
       repeated: Boolean(existing),      // true = this txid was already recorded
       ...(existing && existing.status !== status ? { was: existing.status } : {}),
       ...(capi ? { capi } : {}),
