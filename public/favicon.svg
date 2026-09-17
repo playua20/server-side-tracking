@@ -1,10 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <!-- An event leaving the page: one dot, two waves (Lucide geometry, scaled to
-       fill the square). No plate — the mark sits on a transparent ground. -->
-  <g transform="translate(-4 -4) scale(1.5)" fill="none" stroke="#3fb950"
-     stroke-width="2.1" stroke-linecap="round">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="2.05 2.15 19.8 19.8">
+  <!-- An event leaving the page: one dot, two waves (Lucide geometry).
+       The viewBox is the mark's own bounding box — stroke width and round caps
+       included — plus a 4% margin, so the glyph fills the square without any
+       part of it running off an edge. No plate: transparent ground. -->
+  <g fill="none" stroke="#3fb950" stroke-width="2.1" stroke-linecap="round">
     <path d="M4 11a9 9 0 0 1 9 9"/>
     <path d="M4 4a16 16 0 0 1 16 16"/>
-    <circle cx="5" cy="19" r="1.2" fill="#3fb950"/>
+    <circle cx="5" cy="19" r="1.1" fill="#3fb950"/>
   </g>
 </svg>
