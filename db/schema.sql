@@ -118,6 +118,14 @@ create or replace view stats_capi with (security_invoker = true) as
 -- security_invoker: a plain view runs as its owner and would bypass RLS,
 -- exposing the aggregates to the public anon key. With it, RLS applies.
 
+-- Unique visitors, the figure a tracker's admin panel actually shows. Counted
+-- from the salted IP hash we already keep for rate limiting: the number is real
+-- and the addresses behind it were never stored.
+create or replace view stats_overview with (security_invoker = true) as
+  select count(*)::int                    as events,
+         count(distinct ip_hash)::int     as visitors
+  from events;
+
 create or replace view stats_by_type with (security_invoker = true) as
   select type, count(*)::int as n
   from events group by type order by n desc;

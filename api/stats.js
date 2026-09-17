@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const [total, byType, byCountry, byDevice, byHour, recent, conv, byAd, capi, deliveries] = await Promise.all([
+    const [total, byType, byCountry, byDevice, byHour, recent, conv, byAd, capi, overview, deliveries] = await Promise.all([
       supabase.from('events').select('*', { count: 'exact', head: true }),
       supabase.from('stats_by_type').select('*'),
       supabase.from('stats_by_country').select('*').limit(12),
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       supabase.from('stats_conversions').select('*').maybeSingle(),
       supabase.from('stats_by_ad').select('*').limit(10),
       supabase.from('stats_capi').select('*').maybeSingle(),
+      supabase.from('stats_overview').select('*').maybeSingle(),
       supabase.from('capi_deliveries')
         .select('id,event_id,event_name,destination,status,http_status,attempts,latency_ms,duplicates,request,response,created_at')
         .order('created_at', { ascending: false })
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       total:     total.count || 0,
+      visitors:  overview?.data?.visitors ?? 0,
       byType:    byType.data || [],
       byCountry: byCountry.data || [],
       byDevice:  byDevice.data || [],

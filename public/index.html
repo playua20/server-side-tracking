@@ -24,7 +24,9 @@
       </div>
       <span class="status" id="status">loading…</span>
     </header>
-    <p class="sub">A live server-side tracking pixel. Click a button — your <b>real</b> country and device are read on the server and show up below in seconds. A <b>lead</b> is the event a lander sends when a form is submitted.</p>
+    <p class="sub">A live server-side tracking pixel — <a href="https://github.com/playua20/server-side-tracking">source on GitHub</a>.
+      Click a button: your <b>real</b> country and device are read on the server and show up below in seconds.
+      A <b>lead</b> is the event a lander sends when a form is submitted.</p>
 
     <div class="tiles" id="tiles"></div>
 
@@ -126,7 +128,9 @@
           ['Conversions', c.n || 0, 'compass'],
           ['Revenue', '$' + Number(c.revenue || 0).toFixed(2), 'flame'],
           ['Countries', d.byCountry.length, 'globe'],
-          ['Devices', d.byDevice.length, 'monitor'],
+          // Unique visitors, not device TYPES — that tile's ceiling was 3, and
+          // the doughnut beside it already shows the split properly.
+          ['Visitors', d.visitors ?? 0, 'users'],
         ].map(([l, n, i]) => `<div class="tile"><div class="n">${n}</div><div class="l">${ico(i)}${l}</div></div>`).join('');
 
         // Revenue is approved payouts only; the rest is stated rather than hidden.

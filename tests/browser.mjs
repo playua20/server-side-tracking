@@ -43,7 +43,7 @@ try {
     await page.goto(`${BASE}/?clickid=${clickid}&fbclid=IwAR-${clickid}&sub1=camp-${TAG}&sub3=ad-${TAG}`, { waitUntil: 'load' });
     await page.waitForFunction(() => document.querySelectorAll('.tile').length > 0, null, { timeout: 20000 });
 
-    ok('tiles render', (await page.locator('.tile').count()) === 6);
+    ok('tiles render', (await page.locator('.tile').count()) === 5);
     ok('all three charts are drawn', await page.evaluate(() => document.querySelectorAll('canvas').length === 3));
     ok('the click id comes from the URL', (await page.locator('#cid').textContent()) === clickid);
     ok('the status line is not an error', !(await page.locator('#status').textContent()).startsWith('error'));

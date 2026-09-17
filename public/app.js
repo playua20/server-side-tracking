@@ -18,6 +18,7 @@
     compass: '<circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/>',
     window: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/>',
     apple: '<path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/>',
     penguin: '<path d="M12 2a5 5 0 0 0-5 5v3.5c0 1-.5 2-1.2 2.8A4 4 0 0 0 5 16v3a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3a4 4 0 0 0-.8-2.7c-.7-.8-1.2-1.8-1.2-2.8V7a5 5 0 0 0-5-5Z"/><path d="M10 8h.01"/><path d="M14 8h.01"/>',
   };
@@ -67,7 +68,9 @@
   // duplicated markup across two pages drifts, this cannot.
   const LINKS = [
     ['globe', 'Portfolio', 'https://andriijs.netlify.app'],
-    ['github', 'GitHub', 'https://github.com/playua20/server-side-tracking'],
+    // The profile, not this repository: the footer is about the author, and the
+    // page itself links to the source where that is the useful thing.
+    ['github', 'GitHub', 'https://github.com/playua20'],
     ['telegram', 'Telegram', 'https://t.me/andriijs'],
   ];
   function footer() {
