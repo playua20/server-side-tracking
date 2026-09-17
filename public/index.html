@@ -224,7 +224,7 @@
             `<td>${countryCell(e.country)}</td><td>${iconCell(DEVICE, e.device, 'window')}</td>` +
             `<td>${iconCell(BROWSER, e.browser, 'globe')}</td></tr>`).join('');
 
-        document.getElementById('status').textContent = 'live · updated ' + new Date().toLocaleTimeString();
+        document.getElementById('status').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour12: false });
       } catch (e) {
         document.getElementById('status').textContent = 'error: ' + e.message;
       }
@@ -235,12 +235,23 @@
       try {
         await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: 'test', site: 'dashboard-demo' }) });
-        await load();
+        refresh();
+        setTimeout(refresh, 1500); // a second look, in case the write landed late
       } finally { setTimeout(() => ev.target.disabled = false, 600); }
     });
 
-    load();
-    setInterval(load, 5000); // live refresh
+    // No polling timer on purpose. Every refresh is a function invocation plus
+    // six queries, and a forgotten tab on an interval would spend the free
+    // tier's egress on a page nobody is watching. So the dashboard refreshes
+    // when there is a reason to: on open, after your own event, and when you
+    // come back to the tab — at most once every 10s.
+    let lastLoad = 0;
+    const refresh = () => { lastLoad = Date.now(); load(); };
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && Date.now() - lastLoad > 10000) refresh();
+    });
+
+    refresh();
   </script>
 </body>
 </html>
