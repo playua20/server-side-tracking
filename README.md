@@ -186,6 +186,18 @@ The suite has already earned its keep twice: it caught the dashboard sending no
 `fbclid` (so its own deliveries would have matched nobody), and a postback retry
 with fewer parameters erasing the hashed identifiers the first call had stored.
 
+## The demo is tracked by its own pixel
+
+Both pages carry `t.js` — the same single line a lander would add — so the
+figures on the dashboard describe real visits rather than only the people who
+pressed a button. That also means the first thing a visitor sees is their own
+event: open the page, and the live tail already has your country and device in
+it, read from the request on the server.
+
+Automated browsers are skipped (`navigator.webdriver`): a test run opening the
+page across twenty viewport widths is not twenty visitors, and counting it would
+quietly inflate every number on the page.
+
 ## Two details worth a second look
 
 **The log pages by cursor, not `offset`.** `/api/events` takes the last row seen as
