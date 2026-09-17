@@ -72,14 +72,35 @@ Rate limiting counts visitors without identifying them: the IP is salted and has
 (SHA-256, truncated) and the raw address is never stored. Optional `IP_SALT` env var,
 otherwise the server key is used as the salt.
 
+## Two details worth a second look
+
+**The log pages by cursor, not `offset`.** `/api/events` takes the last row seen as
+`(created_at, id)` and asks for "older than this exact event". Under a live insert
+stream `offset` is wrong, not just slow: a row arriving between two requests shifts
+everything after it, so page 2 repeats a row page 1 already showed and another is
+skipped. The cursor is also a plain index seek instead of walking and discarding rows.
+
+**The dashboard has no polling timer.** Each refresh is a function invocation plus six
+queries, so a tab left open on an interval would spend the free tier's egress on a page
+nobody is watching. It refreshes on open, after your own event, and when the tab is
+brought back — and a Cloudflare Worker pings `api/keepalive` every 3 days, because a
+free Supabase project is paused after a week of inactivity and has to be restored by
+hand. That cron deliberately does not live on Vercel: the job that keeps the site alive
+should not depend on the deployment it watches.
+
 ## Files
 
 | Path | What |
 |------|------|
 | `public/index.html` | the live dashboard (Chart.js) |
+| `public/events.html` | the full event log — filters, cursor paging |
+| `public/app.css`, `public/app.js` | shared styles and helpers (icons, flags, escaping) |
 | `public/t.js` | the tracking snippet (the "pixel") |
 | `api/track.js` | receives an event, resolves geo/device, writes to Supabase |
 | `api/stats.js` | returns aggregates for the dashboard |
+| `api/events.js` | the log's API — keyset pagination, filters |
+| `api/keepalive.js` | one cheap query, called by the cron below |
+| `cron/` | Cloudflare Worker that pings keepalive every 3 days |
 | `db/schema.sql` | table `events` + aggregate views — run in Supabase (idempotent) |
 | `.env.local` | local secrets (gitignored) |
 
