@@ -50,8 +50,10 @@
     } catch (e) { /* never break the host page */ }
   }
 
-  // Auto pageview.
-  send(base("pageview"));
+  // Auto pageview — but not from an automated browser. A test run opening the
+  // page twenty times is not twenty visitors, and counting it would quietly
+  // inflate every figure on the dashboard.
+  if (!navigator.webdriver) send(base("pageview"));
 
   // Manual events: track("lead", { sub1: "..." })
   window.track = function (type, extra) {
