@@ -49,7 +49,11 @@
     .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
     .hint { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
     .hint b { color: var(--ink); font-weight: 600; }
+    /* A live tail, not an archive: the newest events scroll inside the card so
+       the row keeps its height and the page does not stretch. */
+    .feed { max-height: 366px; overflow: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { position: sticky; top: 0; background: var(--panel); z-index: 1; }
     th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
     th { color: var(--muted); font-weight: 600; }
     .status { color: var(--muted); font-size: 12px; margin-left: auto; }
@@ -106,7 +110,12 @@
     </div>
     <div class="grid grid--split" style="margin-top:16px">
       <div class="card"><h2>Top countries</h2><div class="chart" id="boxCountry"><canvas id="chCountry"></canvas></div></div>
-      <div class="card" style="overflow:auto"><h2>Latest events</h2><table id="recent"><tbody></tbody></table></div>
+      <div class="card"><h2>Latest events</h2>
+        <div class="feed"><table id="recent">
+          <thead><tr><th>time</th><th>type</th><th>country</th><th>device</th><th>browser</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 
@@ -209,7 +218,6 @@
         });
 
         document.querySelector('#recent tbody').innerHTML =
-          '<tr><th>time</th><th>type</th><th>country</th><th>device</th><th>browser</th></tr>' +
           // Seconds are dropped on the narrowest phones — the last column of
           // the table is worth more than a two-digit precision nobody reads.
           d.recent.map(e => `<tr><td>${new Date(e.created_at).toLocaleTimeString([], matchMedia('(max-width: 380px)').matches ? { hour12: false, hour: '2-digit', minute: '2-digit' } : { hour12: false })}</td><td>${esc(e.type)}</td>` +

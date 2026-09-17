@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       supabase.from('events')
         .select('type,site,country,device,browser,created_at')
         .order('created_at', { ascending: false })
-        .limit(15),
+        .limit(30), // a scrollable tail of the newest events, not a full archive
     ]);
 
     res.status(200).json({
