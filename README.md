@@ -5,6 +5,9 @@ on any lander sends events to a serverless endpoint, which records the visitor's
 **real** country/device (from the edge) into Postgres. A public dashboard renders
 it live — click a button and watch your own event appear in seconds.
 
+**Live demo: https://server-side-pixel.vercel.app** — click the button and your own
+event shows up, with the country and device the server read from your request.
+
 Portfolio piece for an **Affiliate / AdTech front-end developer**: it shows the
 full data path — event → server-side capture → DB → visualization — the same
 model as Google/Meta pixels, but self-owned and resistant to ad-blockers.
@@ -30,7 +33,7 @@ lander (t.js snippet)  ──POST──▶  /api/track (Node)  ──▶  Supaba
    (index.html + Chart.js)        (aggregate views)
 ```
 
-### 2. Production — PHP + MySQL on shared hosting (real client build)
+### 2. Production — PHP + MySQL on shared hosting (reference architecture, not in this repo)
 
 ```
 lander (t.js snippet)  ──POST──▶  track.php  ──▶  MySQL (events table)
@@ -44,8 +47,11 @@ serverless (Node/Vercel) — nothing to keep alive, no auto-suspension. A paying
 client runs the same flow on ordinary **PHP + MySQL shared hosting**, where
 commercial use is allowed and the endpoint is always up.
 
-Geo/device are read from the edge (`x-vercel-ip-country`, user-agent) — no
-external lookup. The browser never talks to the database directly; only the
+Geo/device are resolved **server-side**, never in the browser: the device, OS and
+browser come from the user-agent, and the country from the platform's own edge
+header — `x-vercel-ip-country` here, `CF-IPCountry` behind Cloudflare, or a local
+GeoIP database (MaxMind GeoLite2) on plain shared hosting. No external lookup, so
+nothing to block. The browser never talks to the database directly; only the
 server does, so the DB stays private (RLS on in Supabase; server-only creds in PHP).
 
 ## Files
@@ -73,19 +79,17 @@ server does, so the DB stays private (RLS on in Supabase; server-only creds in P
 4. `npm install` (installs `@supabase/supabase-js`).
 5. Deploy: push to GitHub → import in Vercel (or `vercel` CLI). Vercel serves
    `public/` statically and `api/*` as functions.
-6. In `public/t.js`, set `ENDPOINT` to the deployed URL
-   (`https://<app>.vercel.app/api/track`) when embedding on other domains.
-   (On the demo page itself the relative `/api/track` already works.)
-7. Open the deployed site → click **“Send a test event”** → it appears live.
+6. Open the deployed site → click **“Send a test event”** → it appears live.
+   (`t.js` needs no editing: it derives the endpoint from its own `src`.)
 
 ### Embedding the snippet on a lander
 
 ```html
-<script src="https://<app>.vercel.app/t.js" data-site="my-lander" defer></script>
+<script src="https://server-side-pixel.vercel.app/t.js" data-site="my-lander" defer></script>
 <!-- custom event, e.g. on form submit: -->
 <script>window.track('lead', { sub1: 'abc' });</script>
 ```
 
 ---
 
-_Status: skeleton complete; pending Supabase credentials + first deploy._
+_Status: live at https://server-side-pixel.vercel.app_

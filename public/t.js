@@ -9,10 +9,14 @@
 (function () {
   "use strict";
 
-  // ← after deploy, set this to your Vercel URL, e.g. https://track-demo.vercel.app/api/track
-  var ENDPOINT = "/api/track";
-
   var script = document.currentScript;
+
+  // Derived from this script's own URL, so the same file works both on the demo
+  // page and embedded on any other domain — nothing to edit per deployment.
+  var ENDPOINT = script && script.src
+    ? new URL("/api/track", script.src).href
+    : "/api/track";
+
   var site = (script && script.getAttribute("data-site")) || location.hostname;
   var q = new URLSearchParams(location.search);
 
