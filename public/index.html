@@ -18,10 +18,13 @@
         <svg class="ico mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.4" fill="currentColor" stroke="none"/><path d="M12.5 18a8.5 8.5 0 0 0-6.5-8.3"/><path d="M19 18A15 15 0 0 0 6 3.2"/></svg>
         Track Demo
       </h1>
-      <button id="fire">Send a test event</button>
+      <div class="actions">
+        <button id="fire" data-type="test">Send a test event</button>
+        <button id="lead" class="ghost" data-type="lead">Send a lead event</button>
+      </div>
       <span class="status" id="status">loading…</span>
     </header>
-    <p class="sub">A live server-side tracking pixel. Click the button — your <b>real</b> country and device are read on the server and show up below in seconds.</p>
+    <p class="sub">A live server-side tracking pixel. Click a button — your <b>real</b> country and device are read on the server and show up below in seconds. A <b>lead</b> is the event a lander sends when a form is submitted.</p>
 
     <div class="tiles" id="tiles"></div>
 
@@ -127,15 +130,20 @@
       }
     }
 
-    document.getElementById('fire').addEventListener('click', async (ev) => {
-      ev.target.disabled = true;
-      try {
-        await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'test', site: 'dashboard-demo' }) });
-        refresh();
-        setTimeout(refresh, 1500); // a second look, in case the write landed late
-      } finally { setTimeout(() => ev.target.disabled = false, 600); }
-    });
+    // Both buttons take the same path a lander does — only the type differs,
+    // which is exactly what the Leads tile counts.
+    for (const b of document.querySelectorAll('[data-type]')) {
+      b.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        btn.disabled = true;
+        try {
+          await fetch('/api/track', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: btn.dataset.type, site: 'dashboard-demo' }) });
+          refresh();
+          setTimeout(refresh, 1500); // a second look, in case the write landed late
+        } finally { setTimeout(() => { btn.disabled = false; }, 600); }
+      });
+    }
 
     // No polling timer on purpose. Every refresh is a function invocation plus
     // six queries, and a forgotten tab on an interval would spend the free
