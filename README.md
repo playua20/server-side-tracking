@@ -30,7 +30,7 @@ ordinary **PHP + MySQL shared hosting**.
 lander (t.js snippet)  ──POST──▶  /api/track (Node)  ──▶  Supabase / Postgres
                                                                │
    public dashboard   ◀──JSON──   /api/stats (Node)  ◀─────────┘
-   (index.html + Chart.js)        (aggregate views)
+   (index.html + Chart.js)        (one aggregate function)
 ```
 
 ### 2. Production — PHP + MySQL on shared hosting (reference architecture, not in this repo)
