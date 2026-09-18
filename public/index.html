@@ -86,7 +86,9 @@
       </div>
       <div class="card"><h2>Postback (S2S)</h2>
         <p class="hint" style="margin-top:0">Your events on this page carry the click id
-          <code id="cid"></code>. Call the endpoint the way an affiliate network would:</p>
+          <code id="cid"></code>. In the real order, a lead comes first and the network
+          settles it afterwards — so press <b>Send a lead event</b>, then call the
+          endpoint the way that network would:</p>
         <pre class="code" id="pbCmd"></pre>
         <div class="more">
           <button class="ghost" id="copyPb">Copy</button>
@@ -94,7 +96,9 @@
         </div>
         <p class="hint">Then reload: the conversion appears above, attributed to your click.
           Run it twice — the same <code>txid</code> updates that one conversion instead of
-          paying twice, which is what makes a network's retries safe.</p>
+          paying twice, which is what makes a network's retries safe. A postback attributes
+          to the <b>click</b>, not to that lead: networks routinely settle clicks whose lead
+          was submitted somewhere your pixel never saw, and those arrive unmatched.</p>
       </div>
     </div>
     <div class="card" style="margin-top:16px">
