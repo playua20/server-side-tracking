@@ -59,9 +59,19 @@ try {
       null, { timeout: 20000 }).then(() => true, () => false);
     ok('the lead appears in the live tail', landed);
 
-    // The network's half, fired from outside the browser using the page's own command.
+    // The network's half, fired from outside the browser using the page's own
+    // command. A 429 here is the endpoint's own rate limit doing its job — the
+    // API suite fires postbacks from the same address — so wait it out, which is
+    // exactly what a network does with a 429.
     const url = (await page.locator('#pbCmd').textContent()).match(/https?:\/\/[^"]+/)[0];
-    const answer = await (await fetch(url)).json();
+    let answer;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const r = await fetch(url);
+      answer = await r.json();
+      if (r.status !== 429) break;
+      console.log(`  (rate limited, waiting 25s — attempt ${attempt})`);
+      await new Promise(res => setTimeout(res, 25000));
+    }
     ok('the printed postback command works', answer.ok === true && answer.matched === true);
     ok('and the conversion was reported outward', answer.capi?.status === 'delivered', JSON.stringify(answer.capi));
 
