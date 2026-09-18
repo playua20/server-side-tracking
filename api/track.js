@@ -32,6 +32,24 @@ function parseUA(ua = '') {
 
 const str = (v, max) => (v == null ? null : String(v).slice(0, max));
 
+/**
+ * Where the visitor came from, reduced to a grouping key.
+ *   none            → 'direct'   (typed, bookmarked, or an app that strips it)
+ *   the page itself → 'internal' (navigation inside the same site)
+ *   anything else   → the host, without www.
+ * Parsed on the server because a malformed URL must not be able to break the
+ * beacon, and because the host is what a report groups by.
+ */
+function refHost(ref, ownHost) {
+  if (!ref) return 'direct';
+  try {
+    const host = new URL(ref).hostname.replace(/^www\./, '');
+    return host && host === ownHost ? 'internal' : host;
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
 // The endpoint is public by design (that is what a pixel is), so it is guarded:
 const TYPES = new Set(['pageview', 'click', 'lead', 'test']); // anything else is refused
 const MAX_BODY = 2000;      // bytes — a legitimate event is a few hundred
@@ -84,6 +102,13 @@ export default async function handler(req, res) {
       device, os, browser,
       referer:    req.headers['referer'] || null,
       user_agent: str(req.headers['user-agent'], 512),
+      // The traffic source, as the browser reported it — not the header above,
+      // which is always the page that fired the beacon.
+      ref_url:    str(b.ref, 512),
+      ref_host:   refHost(b.ref, (() => {
+        try { return new URL(req.headers['referer'] || '').hostname.replace(/^www\./, ''); }
+        catch (e) { return null; }
+      })()),
     };
 
     const { error } = await supabase.from('events').insert(row);

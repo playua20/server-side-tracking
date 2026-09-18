@@ -43,6 +43,9 @@
       clickid: q.get("clickid") || q.get("click_id") || null,
       fbclid: q.get("fbclid") || null,
       fbp: cookie("_fbp"),
+      // Where the visitor came from. Empty means they arrived directly — typed
+      // the address, opened a bookmark, or came from an app that strips it.
+      ref: document.referrer || null,
       sub1: q.get("sub1"), sub2: q.get("sub2"), sub3: q.get("sub3"),
       sub4: q.get("sub4"), sub5: q.get("sub5")
     };

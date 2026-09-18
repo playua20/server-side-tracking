@@ -79,27 +79,37 @@
           <thead><tr><th>campaign</th><th>ad</th><th>conv.</th><th>revenue</th></tr></thead>
           <tbody></tbody>
         </table></div>
-        <p class="empty" id="noAd" hidden>No conversions yet — send a postback with the command on the right.</p>
+        <p class="empty" id="noAd" hidden>No conversions yet — send a postback with the command below.</p>
         <p class="hint">A postback carries no ad ids. These come from the <b>click</b>
           (the platform's macros in the landing URL) and are joined to the conversion
           by <code>clickid</code> — that join is what tells you which ad paid.</p>
       </div>
-      <div class="card"><h2>Postback (S2S)</h2>
-        <p class="hint" style="margin-top:0">Your events on this page carry the click id
-          <code id="cid"></code>. In the real order, a lead comes first and the network
-          settles it afterwards — so press <b>Send a lead event</b>, then call the
-          endpoint the way that network would:</p>
-        <pre class="code" id="pbCmd"></pre>
-        <div class="more">
-          <button class="ghost" id="copyPb">Copy</button>
-          <span class="count" id="copied"></span>
-        </div>
-        <p class="hint">Then reload: the conversion appears above, attributed to your click.
-          Run it twice — the same <code>txid</code> updates that one conversion instead of
-          paying twice, which is what makes a network's retries safe. A postback attributes
-          to the <b>click</b>, not to that lead: networks routinely settle clicks whose lead
-          was submitted somewhere your pixel never saw, and those arrive unmatched.</p>
+      <div class="card"><h2>Traffic sources</h2>
+        <div class="log"><table id="byRef">
+          <thead><tr><th>source</th><th>events</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p class="hint">Read from <code>document.referrer</code> in the browser and reduced to a
+          host on the server. <b>direct</b> means no referrer at all — typed, bookmarked, or an
+          app that strips it; <b>internal</b> is navigation inside the same site.</p>
       </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Postback (S2S)</h2>
+      <p class="hint" style="margin-top:0">Your events on this page carry the click id
+        <code id="cid"></code>. In the real order, a lead comes first and the network
+        settles it afterwards — so press <b>Send a lead event</b>, then call the
+        endpoint the way that network would:</p>
+      <pre class="code" id="pbCmd"></pre>
+      <div class="more">
+        <button class="ghost" id="copyPb">Copy</button>
+        <span class="count" id="copied"></span>
+      </div>
+      <p class="hint">Then reload: the conversion appears above, attributed to your click.
+        Run it twice — the same <code>txid</code> updates that one conversion instead of
+        paying twice, which is what makes a network's retries safe. A postback attributes
+        to the <b>click</b>, not to that lead: networks routinely settle clicks whose lead
+        was submitted somewhere your pixel never saw, and those arrive unmatched.</p>
     </div>
     <div class="card" style="margin-top:16px">
       <h2>Conversions API — outbound delivery log</h2>
@@ -196,6 +206,12 @@
           `<td>$${Number(a.revenue).toFixed(2)}</td></tr>`).join('');
         document.getElementById('byAd').hidden = !byAd.length;
         document.getElementById('noAd').hidden = byAd.length > 0;
+
+        // Traffic sources. 'direct' and 'internal' are computed, everything else
+        // is a host the browser reported, so both go through the escaper.
+        document.querySelector('#byRef tbody').innerHTML = (d.byRef || []).map(r =>
+          `<tr><td>${r.host === 'direct' || r.host === 'internal'
+            ? `<span class="count">${r.host}</span>` : esc(r.host)}</td><td>${r.n}</td></tr>`).join('');
 
         // Outbound deliveries. The destination is stated plainly: with no pixel
         // credentials attached these go to our own stand-in, which answers with

@@ -28,6 +28,14 @@ alter table events add column if not exists ip_hash text;
 -- fbclid comes in the landing URL, _fbp is the cookie the browser pixel sets.
 alter table events add column if not exists fbclid text;
 alter table events add column if not exists fbp text;
+-- Where the VISITOR came from (document.referrer), which is a different thing
+-- from the `referer` column above: that one is the HTTP header of the beacon,
+-- and therefore always the page that fired it. ref_host is the grouping key —
+-- 'direct' when there is no referrer, 'internal' when it is the page itself.
+alter table events add column if not exists ref_url text;
+alter table events add column if not exists ref_host text;
+
+create index if not exists idx_events_refhost on events (ref_host);
 
 create index if not exists idx_events_created  on events (created_at desc);
 create index if not exists idx_events_type     on events (type);
@@ -210,6 +218,10 @@ as $$
                        from ev group by 1 order by 1 desc limit 48) t),
     'sites',    (select coalesce(jsonb_agg(site order by site), '[]')
                  from (select distinct site from events where site is not null) s),
+    -- Traffic sources: the first report any analytics panel shows.
+    'byRef',    (select coalesce(jsonb_agg(to_jsonb(r) order by r.n desc), '[]') from (
+                   select coalesce(ref_host, 'direct') as host, count(*)::int as n
+                   from ev group by 1 order by 2 desc limit 8) r),
     'recent',   (select coalesce(jsonb_agg(r), '[]') from (
                    select type, site, country, device, browser, created_at
                    from ev order by created_at desc limit 30) r),
