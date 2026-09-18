@@ -62,6 +62,7 @@ pixel is. What keeps it from being a free write API into the database:
 | Guard | Where |
 |---|---|
 | only `pageview` / `click` / `lead` / `test` are accepted | `api/track.js` |
+| crawlers, preview fetchers and headless automation are not counted | `api/_shared.js` |
 | request body capped at 2 KB | `api/track.js` |
 | 10 events per minute per visitor → `429` | `api/track.js` |
 | events older than 30 days are pruned | `api/track.js` (no scheduler needed) |
@@ -164,7 +165,7 @@ pretends to be Meta; attaching credentials changes the destination, not the code
 ## Tests
 
 ```bash
-npm test            # 60 checks against the API
+npm test            # 65 checks against the API
 npm run test:browser  # 28 checks in a real browser
 ```
 
