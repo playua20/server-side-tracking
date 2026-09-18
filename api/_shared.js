@@ -3,6 +3,20 @@ import { createHash } from 'node:crypto';
 // Files prefixed with _ are not routed as endpoints by Vercel — this is a
 // module, not a function.
 
+/**
+ * Crawlers, link-preview fetchers and headless automation — counted as visitors,
+ * they quietly inflate every figure on the dashboard. A browser always sends a
+ * user-agent, so an empty one is a script too.
+ *
+ * Deliberately NOT in the list: curl, wget and the other hand-run tools. They
+ * are somebody deliberately calling the endpoint — the README's own examples do
+ * exactly that — and treating a deliberate call as a crawler would make the
+ * documented flow silently do nothing.
+ */
+const BOTS = /bot\b|bots?\/|crawl|spider|slurp|scrape|fetcher|monitor|uptime|preview|facebookexternalhit|whatsapp|telegram|discord|slack|twitterbot|embedly|pinterest|headless|phantomjs|puppeteer|playwright|selenium|lighthouse|pagespeed|ahrefs|semrush|mj12|dotbot|petal|bytespider|gptbot|claudebot|ccbot|applebot|yandex|baidu|duckduck/i;
+
+export const isBot = ua => !ua || BOTS.test(ua);
+
 /** Visitors are counted, not identified: the IP is salted and hashed, never stored raw. */
 export function ipHash(req) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();

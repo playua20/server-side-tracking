@@ -24,9 +24,14 @@ const ok = (label, cond, extra = '') => {
 };
 const section = t => console.log('\n' + t);
 
+// The tracking endpoint ignores crawlers, so a suite that wants its events
+// stored has to look like a browser. Anything else would be testing the filter
+// rather than the thing behind it.
+const BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+
 const get = async path => { const r = await fetch(BASE + path); return [r.status, await r.json().catch(() => ({}))]; };
-const post = async (path, body, type = 'text/plain') => {
-  const r = await fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': type }, body });
+const post = async (path, body, type = 'text/plain', ua = BROWSER) => {
+  const r = await fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': type, 'User-Agent': ua }, body });
   return [r.status, await r.json().catch(() => ({}))];
 };
 
@@ -43,6 +48,17 @@ try {
     ok('an unknown event type is refused', c2 === 400, b2.error);
     const [c3] = await post('/api/track', JSON.stringify({ type: 'test', sub1: 'x'.repeat(2100) }));
     ok('an oversized body is refused', c3 === 413);
+
+    // Crawlers answer 200 so they learn nothing, but nothing is written.
+    const before = (await db.from('events').select('*', { count: 'exact', head: true })).count;
+    for (const ua of ['Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)',
+                      'Mozilla/5.0 (X11; Linux x86_64) HeadlessChrome/140.0.0.0 Safari/537.36',
+                      'TelegramBot (like TwitterBot)', '']) {
+      const [code, body] = await post('/api/track', JSON.stringify({ type: 'pageview', site: TAG + '-bot' }), 'text/plain', ua);
+      ok(`ignored: ${ua.slice(0, 34) || '(no user-agent)'}`, code === 200 && body.ignored === 'bot');
+    }
+    const after = (await db.from('events').select('*', { count: 'exact', head: true })).count;
+    ok('and none of them reached the table', after === before, `${before} → ${after}`);
   }
 
   section('events: keyset pagination walks the table exactly once');

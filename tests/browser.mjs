@@ -23,6 +23,9 @@ const ok = (label, cond, extra = '') => {
 };
 
 const TAG = 'btest-' + Math.random().toString(36).slice(2, 8);
+// Playwright announces HeadlessChrome, which the endpoint ignores as a crawler.
+// A suite checking what a visitor sees has to arrive as one.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 // CHROME_PATH lets the suite use a browser that is already on the machine,
 // instead of making `npx playwright install` a prerequisite.
 const browser = await chromium.launch(
@@ -32,7 +35,7 @@ const browser = await chromium.launch(
 try {
   for (const [label, width] of [['desktop', 1280], ['phone', 390]]) {
     console.log(`\n${label} (${width}px)`);
-    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, userAgent: BROWSER_UA });
     const errors = [], failures = [];
     page.on('pageerror', e => errors.push(String(e)));
     page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
@@ -80,7 +83,7 @@ try {
     // A stand-in lander: nothing but the snippet and a form, on a blank origin,
     // which is also the cross-domain case.
     const site = TAG + '-lander';
-    const page = await browser.newPage({ viewport: { width: 1000, height: 700 } });
+    const page = await browser.newPage({ viewport: { width: 1000, height: 700 }, userAgent: BROWSER_UA });
     await page.goto('about:blank');
     await page.setContent(`<form id="order" name="order"><input name="email"><button>send</button></form>
       <script src="${BASE}/t.js" data-site="${site}" data-lead-form="#order" defer></script>`);
@@ -118,7 +121,7 @@ try {
         // A fresh tab per width: resizing one tab leaves the charts holding the
         // previous width for a moment, which reads as an overflow that no
         // visitor would ever see.
-        const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+        const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1, userAgent: BROWSER_UA });
         await page.goto(BASE + path, { waitUntil: 'load' });
         // Only the page itself must never scroll sideways. A table inside a
         // labelled scroll box is allowed to: campaign ids and payload strings

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { ipHash, overLimit, pruneSometimes } from './_shared.js';
+import { ipHash, overLimit, pruneSometimes, isBot } from './_shared.js';
 
 // Server-side Supabase client (service_role bypasses RLS — server only, never shipped to the browser).
 const supabase = createClient(
@@ -47,6 +47,13 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
+    // Checked before anything else touches the database: a crawler costs us a
+    // regex, not a write and two queries. The answer is a plain 200 — nothing
+    // is served by telling a scraper what was recognised.
+    if (isBot(req.headers['user-agent'])) {
+      return res.status(200).json({ ok: true, ignored: 'bot' });
+    }
+
     const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
     if (raw.length > MAX_BODY) return res.status(413).json({ ok: false, error: 'payload too large' });
 
