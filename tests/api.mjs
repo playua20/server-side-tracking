@@ -59,6 +59,16 @@ try {
     }
     const after = (await db.from('events').select('*', { count: 'exact', head: true })).count;
     ok('and none of them reached the table', after === before, `${before} → ${after}`);
+
+    // The traffic source: reduced to a host, with its own names for the two
+    // cases that are not hosts at all.
+    for (const [ref, expected] of [['https://www.google.com/search?q=x', 'google.com'],
+                                   [null, 'direct'], ['not a url', 'unknown']]) {
+      const tag = `${TAG}-ref-${expected}`;
+      await post('/api/track', JSON.stringify({ type: 'pageview', site: TAG, clickid: tag, ref }));
+      const row = (await db.from('events').select('ref_host,ref_url').eq('clickid', tag).maybeSingle()).data;
+      ok(`referrer ${JSON.stringify(ref)} → ${expected}`, row?.ref_host === expected, JSON.stringify(row));
+    }
   }
 
   section('events: keyset pagination walks the table exactly once');
@@ -179,9 +189,13 @@ try {
     const [, all] = await get('/api/stats?period=all');
     const [, mine] = await get(`/api/stats?site=${TAG}`);
     ok('this run\'s source is offered in the list', (all.sites || []).includes(TAG), JSON.stringify(all.sites));
+    // Compared against the table, not against a number written here: this run
+    // creates a few events with its own site, and the count changes whenever a
+    // check is added above.
+    const ours = (await db.from('events').select('*', { count: 'exact', head: true }).eq('site', TAG)).count;
     ok('filtering by source narrows the totals', mine.total < all.total && mine.total >= 1, `${mine.total} of ${all.total}`);
-    ok('and only this run\'s events are counted', mine.byType.every(t => ['lead', 'pageview', 'click', 'test'].includes(t.type)) && mine.total === 1, JSON.stringify(mine.byType));
-    ok('its one event is the click we stored', mine.recent[0]?.site === TAG);
+    ok('and it counts exactly this run\'s events', mine.total === ours, `${mine.total} vs ${ours} in the table`);
+    ok('every one of them belongs to this run', mine.recent.every(e => e.site === TAG));
 
     const [, hour] = await get('/api/stats?period=24h');
     ok('a period never exceeds all time', hour.total <= all.total);
@@ -189,7 +203,7 @@ try {
     ok('rubbish filters fall back instead of failing', junk.period === '30d' && junk.site === null, JSON.stringify({ p: junk.period, s: junk.site }));
 
     const [, logged] = await get(`/api/events?limit=50&site=${TAG}`);
-    ok('the log filters by source as well', logged.rows.length === 1 && logged.rows[0].site === TAG, `${logged.rows.length} row(s)`);
+    ok('the log filters by source as well', logged.rows.length === ours && logged.rows.every(r => r.site === TAG), `${logged.rows.length} row(s)`);
     ok('the log offers the source list too', (logged.sites || []).includes(TAG));
   }
 } finally {

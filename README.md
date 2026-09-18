@@ -165,7 +165,7 @@ pretends to be Meta; attaching credentials changes the destination, not the code
 ## Tests
 
 ```bash
-npm test            # 65 checks against the API
+npm test            # 68 checks against the API
 npm run test:browser  # 28 checks in a real browser
 ```
 
@@ -198,6 +198,17 @@ The aggregation is one database function, `dashboard_stats(p_site, p_since)`
 (see `db/schema.sql`), which returns the whole payload as JSON. A view cannot
 take arguments, and pulling rows out to count them in JavaScript is the version
 that falls over once the table stops being small.
+
+## Where visitors came from
+
+`document.referrer` is read in the browser and reduced to a host on the server,
+which is what a Traffic sources report groups by. Two of its values are not hosts:
+**direct** (no referrer — typed, bookmarked, or an app that strips it) and
+**internal** (navigation inside the same site).
+
+Worth separating from the `referer` column next to it in the table: that one is
+the HTTP header of the beacon, so it is always the page that fired the event, and
+answering "where did this visitor come from" with it is a common mistake.
 
 ## The demo is tracked by its own pixel
 
