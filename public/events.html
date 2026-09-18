@@ -9,8 +9,9 @@
   <meta name="theme-color" content="#0d1117">
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js"></script>
-  <!-- Tracked by its own pixel, like the dashboard. -->
-  <script src="/t.js" data-site="event-log" defer></script>
+  <!-- No pixel here on purpose: views of our own log page are not a source
+       anyone would want in the numbers. The dashboard carries one, and a real
+       external site carries the other. -->
 </head>
 <body>
   <div class="wrap">
