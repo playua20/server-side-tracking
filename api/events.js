@@ -75,7 +75,8 @@ export default async function handler(req, res) {
         if (site) c = c.eq('site', site);
         return c;
       })(),
-      supabase.from('events').select('site').not('site', 'is', null),
+      // A view that does the DISTINCT in the database — see db/schema.sql.
+      supabase.from('stats_sites').select('site').order('site'),
     ] : [];
 
     const [page, types, countries, total, sites] = await Promise.all([rows, ...extras]);
@@ -91,7 +92,7 @@ export default async function handler(req, res) {
         total: total?.count ?? null,
         types: (types?.data || []).map(t => t.type),
         countries: (countries?.data || []).map(c => c.country).filter(c => /^[A-Z]{2}$/.test(c)),
-        sites: [...new Set((sites?.data || []).map(s => s.site))].sort(),
+        sites: (sites?.data || []).map(s => s.site),
       } : {}),
     });
   } catch (e) {

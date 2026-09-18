@@ -126,6 +126,12 @@ create or replace view stats_overview with (security_invoker = true) as
          count(distinct ip_hash)::int     as visitors
   from events;
 
+-- The filter's own list of sources. Fetching the column and reducing it in the
+-- API would send one value per row — and PostgREST caps a response at a
+-- thousand rows, so past that the list would silently lose sources.
+create or replace view stats_sites with (security_invoker = true) as
+  select distinct site from events where site is not null;
+
 create or replace view stats_by_type with (security_invoker = true) as
   select type, count(*)::int as n
   from events group by type order by n desc;
