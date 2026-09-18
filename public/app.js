@@ -69,7 +69,9 @@
   // One footer, written once, injected into whichever page has the element —
   // duplicated markup across two pages drifts, this cannot.
   const LINKS = [
-    ['globe', 'Portfolio', 'https://andriijs.netlify.app'],
+    // Not "Portfolio": that site is a services-and-availability page whose
+    // portfolio is one section. This label says the thing worth knowing.
+    ['globe', 'Hire me', 'https://andriijs.netlify.app'],
     // The profile, not this repository: the footer is about the author, and the
     // page itself links to the source where that is the useful thing.
     ['github', 'GitHub', 'https://github.com/playua20'],
