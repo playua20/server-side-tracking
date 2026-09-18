@@ -67,6 +67,12 @@
     let total = null;
     let loading = false;
 
+    // Every page appends to the DOM and nothing is removed, so an enthusiastic
+    // visitor could hold ten thousand rows in the document and make their own
+    // browser crawl. Past this the log asks for a narrower filter instead —
+    // which is the honest answer: nobody reads the ten-thousandth row.
+    const MAX_ROWS = 500;
+
     const when = iso => {
       const d = new Date(iso);
       return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ` +
@@ -117,11 +123,13 @@
           fillSelect($('fCountry'), d.countries || [], 'countries');
         }
 
-        $('more').hidden = !next;
+        const capped = shown >= MAX_ROWS;
+        $('more').hidden = !next || capped;
         $('empty').hidden = shown > 0;
-        $('count').textContent = shown
-          ? (next ? `${shown} of ${total} events` : `all ${shown} events`)
-          : '';
+        $('count').textContent = !shown ? ''
+          : capped ? `${shown} of ${total} events — filter by source, type or country to go further`
+          : next ? `${shown} of ${total} events`
+          : `all ${shown} events`;
         $('status').textContent = 'updated ' + new Date().toLocaleTimeString([], { hour12: false });
       } catch (e) {
         $('status').textContent = 'error: ' + e.message;

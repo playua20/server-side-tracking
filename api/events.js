@@ -69,7 +69,11 @@ export default async function handler(req, res) {
       supabase.from('stats_by_type').select('*'),
       supabase.from('stats_by_country').select('*'),
       (() => {
-        let c = supabase.from('events').select('*', { count: 'exact', head: true });
+        // 'estimated' is exact on a small table and falls back to the planner's
+        // estimate on a large one. An exact count(*) walks every matching row,
+        // which is free at ten thousand and a visible pause at ten million —
+        // for a caption that says "50 of N" nobody needs that precision.
+        let c = supabase.from('events').select('*', { count: 'estimated', head: true });
         if (type) c = c.eq('type', type);
         if (country) c = c.eq('country', country);
         if (site) c = c.eq('site', site);
