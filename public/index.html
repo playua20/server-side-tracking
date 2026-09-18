@@ -143,10 +143,12 @@
       return chart;
     }
 
-    // Filter state: read from the URL on arrival, written back on every change.
-    const filters = new URLSearchParams(location.search);
-    const period = () => filters.get('period') || '30d';
-    const site = () => filters.get('site') || '';
+    // Filter state lives in the URL and is read from it every time — never from
+    // a copy taken at load. The address also carries the click id and the ad
+    // macros, and a stale copy written back would quietly erase them.
+    const params = () => new URLSearchParams(location.search);
+    const period = () => params().get('period') || '30d';
+    const site = () => params().get('site') || '';
 
     function fillSites(list) {
       const el = document.getElementById('fSite');
@@ -271,9 +273,9 @@
     // A click id for this visit, so a postback has something to attribute to.
     // ?clickid=… in the URL wins — that is how a real lander receives it from
     // the ad platform, together with the campaign/adset/ad macros.
-    const params = new URLSearchParams(location.search);
+    const q = params();   // the address as it is right now
     const rnd = () => Math.random().toString(36).slice(2, 10);
-    const CLICKID = params.get('clickid') || (() => {
+    const CLICKID = q.get('clickid') || (() => {
       try {
         let v = sessionStorage.getItem('demo_clickid');
         if (!v) { v = 'demo-' + rnd(); sessionStorage.setItem('demo_clickid', v); }
@@ -281,15 +283,28 @@
       } catch (e) { return 'demo-' + rnd(); }
     })();
     const SUBS = {
-      sub1: params.get('sub1') || 'demo-campaign',
-      sub2: params.get('sub2') || 'demo-adset',
-      sub3: params.get('sub3') || 'demo-ad',
+      sub1: q.get('sub1') || 'demo-campaign',
+      sub2: q.get('sub2') || 'demo-adset',
+      sub3: q.get('sub3') || 'demo-ad',
     };
+
+    // Put the click id into the address before t.js runs — this inline script
+    // executes while the document is parsed, the deferred snippet afterwards.
+    // Without it, arriving and firing the postback straight away produces an
+    // unmatched conversion: the id is printed on the page but exists nowhere
+    // yet, because only a button press carried it. Now the arrival itself does,
+    // and the URL looks like the landing URL an ad platform builds.
+    if (!q.get('clickid')) {
+      const url = new URL(location.href);
+      url.searchParams.set('clickid', CLICKID);
+      for (const [k, v] of Object.entries(SUBS)) url.searchParams.set(k, v);
+      history.replaceState(null, '', url);
+    }
     // The same identifiers t.js collects on a real lander: without them the
     // outbound CAPI payload would carry no fbc and match nothing.
     const cookie = n => (document.cookie.match('(?:^|; )' + n + '=([^;]*)') || [])[1];
     const CLICKIDS = {
-      fbclid: params.get('fbclid') || null,
+      fbclid: q.get('fbclid') || null,
       fbp: cookie('_fbp') ? decodeURIComponent(cookie('_fbp')) : null,
     };
 
@@ -314,8 +329,9 @@
 
     for (const [id, key] of [['fPeriod', 'period'], ['fSite', 'site']]) {
       document.getElementById(id).addEventListener('change', (ev) => {
-        ev.target.value ? filters.set(key, ev.target.value) : filters.delete(key);
-        history.replaceState(null, '', filters.toString() ? '?' + filters : location.pathname);
+        const url = new URL(location.href);
+        ev.target.value ? url.searchParams.set(key, ev.target.value) : url.searchParams.delete(key);
+        history.replaceState(null, '', url);
         refresh();
       });
     }
