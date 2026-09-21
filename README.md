@@ -162,6 +162,20 @@ pretends to be Meta; attaching credentials changes the destination, not the code
 - **A delivery never breaks a postback.** The network gets its `200` whatever the
   platform is doing; the delivery outcome is reported alongside, not instead.
 
+## Running it locally
+
+```bash
+npm run dev         # http://localhost:3000
+```
+
+`dev.mjs` serves `public/` and runs the `api/` handlers, reading `.env.local`. It
+is a thin stand-in for the Vercel runtime — `req.query`, a parsed `req.body` and
+`res.status().json()` — which is all the handlers use, and it starts instantly.
+
+Two differences from the deployment, both deliberate: the edge geo headers do not
+exist locally, so an event sent from here has no country; and `.env.local` points
+at the real database, so such an event is real — send `test` events if any.
+
 ## Tests
 
 ```bash
