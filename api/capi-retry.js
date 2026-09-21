@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { retryDue } from './_deliver.js';
+import { retryDue, compensateDue } from './_deliver.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -25,7 +25,16 @@ export default async function handler(req, res) {
   const origin = `https://${req.headers.host}`;
   try {
     const results = await retryDue(supabase, origin, 5);
-    return res.status(200).json({ ok: true, retried: results.length, results });
+    // Second pass: reversals whose compensating call never went out — the
+    // destination was down when it arrived, or the reversal predates the code
+    // that sends one. Firing the correction once, at the moment the reversal
+    // lands, covers the normal case and nothing else; this covers the rest.
+    const compensated = await compensateDue(supabase, origin, 5);
+    return res.status(200).json({
+      ok: true,
+      retried: results.length, results,
+      compensated: compensated.length, compensations: compensated,
+    });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }

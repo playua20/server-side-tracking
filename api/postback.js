@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { ipHash, overLimit, pruneSometimes } from './_shared.js';
 import { hashEmail, hashPhone } from './_capi.js';
-import { deliverConversion } from './_deliver.js';
+import { deliverConversion, refundConversion } from './_deliver.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -124,8 +124,17 @@ export default async function handler(req, res) {
     // still running after the response — but its outcome never changes ours:
     // the network must get its 200 regardless of what Meta is doing.
     let capi;
+    const origin = `https://${req.headers.host}`;
     if (status === 'approved') {
-      capi = await deliverConversion(supabase, data.id, `https://${req.headers.host}`);
+      capi = await deliverConversion(supabase, data.id, origin);
+    } else if (existing && existing.status === 'approved') {
+      // A REVERSAL: this conversion was approved, so the platform has already
+      // been told about it, and the same call that takes the money back has to
+      // take the signal back too. Otherwise the platform keeps optimising
+      // towards a conversion that no longer exists.
+      // Awaited for the same reason as above — serverless kills whatever is
+      // still running after the response — and its outcome never changes ours.
+      capi = await refundConversion(supabase, data.id, origin);
     }
 
     return res.status(200).json({

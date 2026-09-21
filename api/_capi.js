@@ -55,7 +55,41 @@ export function destinationFor(origin) {
  * hashed, and only the fields we actually have are included (an empty field is
  * worse than an absent one — it counts against the match quality score).
  */
-export function buildPayload({ conversion, click, eventName = 'Lead' }) {
+/**
+ * The two kinds of call a conversion can produce.
+ *
+ * `refund` is the compensating one, sent when a postback REVERSES a conversion
+ * we have already reported. Without it the platform keeps optimising on a
+ * conversion that turned out not to exist — the worst kind of wrong signal,
+ * because it looks like success.
+ *
+ * It must carry its own event_id: the platform deduplicates on that key (so do
+ * we, in _deliver.js), so reusing the original's id would have the correction
+ * silently dropped as a repeat of the thing it is meant to undo.
+ *
+ * ⚠ Against the real Graph API this shape is an approximation, and the page
+ * says so rather than implying otherwise. Meta's own documented way to remove
+ * an event it has already counted is the Deletion API, a different verb on a
+ * different endpoint. What is built here — detecting the reversal, giving the
+ * correction its own identity, queueing it, retrying it, auditing it — is the
+ * part a production integration keeps; only the transport would change. The
+ * default destination is our stand-in, whose contract this is.
+ */
+export const KINDS = {
+  conversion: { suffix: '',        eventName: 'Lead'   },
+  refund:     { suffix: '-refund', eventName: 'Refund' },
+};
+
+export const eventIdFor = (conversionId, kind = 'conversion') =>
+  `conv-${conversionId}${(KINDS[kind] || KINDS.conversion).suffix}`;
+
+/** Which kind a stored delivery row is, read back from its own event_id. */
+export const kindOf = eventId =>
+  String(eventId || '').endsWith(KINDS.refund.suffix) ? 'refund' : 'conversion';
+
+export function buildPayload({ conversion, click, kind = 'conversion' }) {
+  const spec = KINDS[kind] || KINDS.conversion;
+  const eventName = spec.eventName;
   const nowS = Math.floor(Date.now() / 1000);
   const createdS = Math.floor(new Date(conversion.created_at || Date.now()).getTime() / 1000);
   const event_time = Math.max(nowS - MAX_AGE_S, Math.min(createdS, nowS));
@@ -77,13 +111,18 @@ export function buildPayload({ conversion, click, eventName = 'Lead' }) {
     event_name: eventName,
     event_time,
     // Shared with the browser pixel: same id on both sides → one conversion.
-    event_id: `conv-${conversion.id}`,
+    event_id: eventIdFor(conversion.id, kind),
     action_source: 'website',
     user_data,
     custom_data: {
-      value: Number(conversion.payout || 0),
+      // A correction carries the amount it takes back, signed, and keeps the
+      // original's order_id so the two can be tied together on the far side.
+      value: kind === 'refund'
+        ? -Math.abs(Number(conversion.payout || 0))
+        : Number(conversion.payout || 0),
       currency: conversion.currency || 'USD',
       ...(conversion.clickid ? { order_id: conversion.txid } : {}),
+      ...(kind === 'refund' ? { reversal_of: eventIdFor(conversion.id) } : {}),
     },
   };
   if (click?.referer) data.event_source_url = click.referer;

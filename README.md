@@ -159,6 +159,33 @@ pretends to be Meta; attaching credentials changes the destination, not the code
   10h, then given up at five attempts). The sweeper lives on Cloudflare on
   purpose: the thing that repairs deliveries should not depend on the deployment
   whose deliveries broke.
+- **A reversal is reported too, or the signal outlives the conversion.** A
+  postback with the same `txid` can turn an approved conversion into a rejected
+  one — the order went unconfirmed, the payment failed, a fraud check caught it.
+  By then the platform has already been told, and left alone it goes on
+  optimising towards a conversion that no longer exists: the worst kind of wrong
+  signal, because it looks like success. So the same call that takes the money
+  back queues a compensating delivery, carrying the amount signed and pointing
+  at the event it undoes.
+
+  It needs an **`event_id` of its own** (`conv-<id>-refund`). Reusing the
+  original's would have the correction dropped as a duplicate of the very thing
+  it withdraws — by the platform, and by our own dedupe before that. The retry
+  sweeper reads the kind back off the row's `event_id`, so a retried correction
+  is never rebuilt as the conversion it corrects.
+
+  And the cron closes the gap rather than trusting one call at one moment: a
+  reversal that landed while the destination was down, or one that predates this
+  code, is compensated on the next sweep. The dashboard's warning and the
+  sweeper's query are the same query, so the number shown is the number repaired.
+
+  ⚠ Against the real Graph API this shape is an approximation, and both pages say
+  so. Meta's documented way to remove an event it has already counted is the
+  Deletion API — a different verb on a different endpoint. What is built here —
+  detecting the reversal, giving the correction its own identity, queueing,
+  retrying, auditing, sweeping — is the part a production integration keeps; only
+  the transport would change.
+
 - **A delivery never breaks a postback.** The network gets its `200` whatever the
   platform is doing; the delivery outcome is reported alongside, not instead.
 
