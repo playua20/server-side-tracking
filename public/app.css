@@ -144,8 +144,12 @@ select {
 }
 /* Footer links: a brand mark is a filled glyph, the Lucide set is stroked. */
 .ico.solid { fill: currentColor; stroke: none; }
+/* Centred, not left: the header spans the column with content at both edges,
+   and the cards above fill it — three small links hugging the far left leave
+   most of the rule empty and read as an unfinished row rather than alignment. */
 .foot {
-  display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center;
+  display: flex; flex-wrap: wrap; gap: 8px 22px;
+  align-items: center; justify-content: center;
   margin: 36px 0 0; padding-top: 18px; border-top: 1px solid var(--line);
 }
 .foot a {
