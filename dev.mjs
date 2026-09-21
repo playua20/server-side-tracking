@@ -64,7 +64,12 @@ const readBody = (req) => new Promise((resolve) => {
 });
 
 const serveStatic = async (url, res) => {
-  // `/` → index.html, and `/events` → events.html, as the deployment serves them.
+  // `/` → index.html, and `/events` → events.html.
+  // ⚠ The deployment does NOT serve that second form: Vercel has no clean URLs
+  // without `cleanUrls` in a vercel.json, and this project has none — which is
+  // why the page links to /events.html explicitly. This comment used to claim
+  // the opposite and was believed; it cost a 404 on a sibling project's
+  // production site.
   const clean = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
   const candidates = clean === '' ? ['index.html'] : [clean, clean + '.html', join(clean, 'index.html')];
   for (const c of candidates) {
