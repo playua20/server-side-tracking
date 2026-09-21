@@ -14,9 +14,14 @@
  *
  * Two things differ from production, both on purpose:
  *  - the edge geo headers (x-vercel-ip-country, -city) do not exist here, so a
- *    locally tracked event has no country. The handler's own fallback applies.
- *  - .env.local points at the REAL Supabase project, so events sent from a local
- *    page land on the live dashboard. Use type=test if you send any.
+ *    locally tracked event would have no country;
+ *  - .env.local points at the REAL Supabase project, so a local page talks to
+ *    the live database.
+ *
+ * Because of those two together, /api/track now REFUSES events handled here:
+ * they used to land on the public dashboard as country-less "Unknown" rows.
+ * The response is `{ ok: true, ignored: 'local' }` — see isLocalHost() in
+ * api/_shared.js. Set ALLOW_LOCAL_TRACK=1 to record them anyway.
  */
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';

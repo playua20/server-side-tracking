@@ -17,6 +17,31 @@ const BOTS = /bot\b|bots?\/|crawl|spider|slurp|scrape|fetcher|monitor|uptime|pre
 
 export const isBot = ua => !ua || BOTS.test(ua);
 
+/**
+ * True when this request was handled by a LOCAL dev server rather than by the
+ * deployment.
+ *
+ * Why it matters: .env.local points at the real database, so a page opened on
+ * `npm run dev` writes to the live dashboard. Such a request never passed
+ * through Vercel's edge, so it carries no x-vercel-ip-country — and it lands
+ * as a country-less row that shows up on the public dashboard as "Unknown".
+ *
+ * Keyed on the request's own Host, which only a local server can produce, so
+ * the check FAILS OPEN: if it ever stops matching, events are still recorded.
+ * Keying on the ABSENCE of an edge header would fail closed instead, and the
+ * failure mode there is every event silently discarded.
+ *
+ * `ALLOW_LOCAL_TRACK=1` turns it off, for deliberately running the suites
+ * against a local server.
+ */
+/* The WHOLE host must be a loopback name with an optional port. A prefix test
+   is wrong in both directions: `127.` followed by an anchor never matches a
+   real `127.0.0.1:3000`, and a bare prefix would swallow `localhost.evil.com`. */
+const LOCAL_HOST = /^(?:localhost|0\.0\.0\.0|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]|::1)(?::\d+)?$/i;
+
+export const isLocalHost = host =>
+  process.env.ALLOW_LOCAL_TRACK !== '1' && LOCAL_HOST.test(String(host || ''));
+
 /** Visitors are counted, not identified: the IP is salted and hashed, never stored raw. */
 export function ipHash(req) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim();
