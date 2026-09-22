@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { ipHash, overLimit, pruneSometimes, isBot, isLocalHost } from './_shared.js';
+import { ipHash, overLimit, pruneSometimes, isBot, isLocalHost, noteBlocked } from './_shared.js';
 
 // Server-side Supabase client (service_role bypasses RLS — server only, never shipped to the browser).
 const supabase = createClient(
@@ -69,6 +69,7 @@ export default async function handler(req, res) {
     // regex, not a write and two queries. The answer is a plain 200 — nothing
     // is served by telling a scraper what was recognised.
     if (isBot(req.headers['user-agent'])) {
+      await noteBlocked(supabase, 'crawler-ua');
       return res.status(200).json({ ok: true, ignored: 'bot' });
     }
 
@@ -78,6 +79,7 @@ export default async function handler(req, res) {
     // and must not be told anything it could act on — but `ignored` says which
     // guard caught it, so a developer wondering where their event went can see.
     if (isLocalHost(req.headers.host)) {
+      await noteBlocked(supabase, 'local-host');
       return res.status(200).json({ ok: true, ignored: 'local' });
     }
 
@@ -90,6 +92,7 @@ export default async function handler(req, res) {
 
     const ip_hash = ipHash(req);
     if (await overLimit(supabase, 'events', ip_hash, MAX_PER_MINUTE)) {
+      await noteBlocked(supabase, 'rate-limit');
       return res.status(429).json({ ok: false, error: 'too many events' });
     }
 

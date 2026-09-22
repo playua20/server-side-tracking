@@ -259,7 +259,41 @@ as $$
   );
 $$;
 
+-- ─── What the edge REFUSED, which is the other half of the picture ─────────
+--
+-- Every guard in track.js answers and returns without writing anything, so a
+-- refused request left no trace at all: the dashboard could say how many events
+-- arrived, never how many were turned away. That is the wrong silence for an
+-- ad-tech tracker, where refused traffic is not noise but MONEY — you paid for
+-- those clicks, and the count with its reason is the evidence a traffic source
+-- is shown when you ask for a refund. Voluum, Binom, Keitaro and RedTrack all
+-- report it; GA4 and Plausible filter silently and tell you nothing.
+--
+-- Counters, not rows. A row per refusal would grow without bound on a crawled
+-- endpoint and would store a crawler's fingerprint for no purpose; an hourly
+-- tally answers every question the page actually asks and stays at a handful of
+-- rows a day. Hourly rather than daily so that a 24h period filters exactly
+-- rather than approximately.
+create table if not exists blocked (
+  bucket timestamptz not null,            -- date_trunc('hour', now())
+  reason text        not null,            -- crawler-ua / local-host / rate-limit
+  n      int         not null default 0,
+  primary key (bucket, reason)
+);
+
+create index if not exists idx_blocked_bucket on blocked (bucket desc);
+
+-- One statement, no read-then-write: two crawlers arriving in the same second
+-- must not each read 4 and each write 5.
+create or replace function note_blocked(p_reason text)
+returns void language sql as $$
+  insert into blocked (bucket, reason, n)
+  values (date_trunc('hour', now()), p_reason, 1)
+  on conflict (bucket, reason) do update set n = blocked.n + 1;
+$$;
+
 -- RLS stays ON (enabled at project creation). No policies are added on purpose:
 -- only the server's service_role key touches this data, and it bypasses RLS.
 -- The public/anon role therefore has no access — which is exactly what we want.
 alter table events enable row level security;
+alter table blocked enable row level security;

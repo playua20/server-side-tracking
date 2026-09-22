@@ -65,6 +65,25 @@ export async function overLimit(supabase, table, hash, max) {
 }
 
 /**
+ * Records that a guard turned a request away, so the dashboard can report what
+ * was refused rather than only what arrived.
+ *
+ * ⚠ This DOES cost the bot path one write where it previously cost none — the
+ * comment at that guard used to prize exactly that ("a crawler costs us a
+ * regex, not a write and two queries"), and half of it still holds: no reads,
+ * no row per refusal, one upsert into an hourly counter. The trade is deliberate
+ * and it buys the only honest version of the number. A count that is sampled,
+ * or inferred, is a count nobody should put on a page.
+ *
+ * Awaited, not fired and forgotten: a serverless function can be frozen the
+ * moment it responds, and a dropped promise would undercount silently — which
+ * is worse than not counting at all. Never allowed to fail the request.
+ */
+export async function noteBlocked(supabase, reason) {
+  try { await supabase.rpc('note_blocked', { p_reason: reason }); } catch {}
+}
+
+/**
  * Retention without a scheduler: roughly one call in a hundred prunes whatever
  * has aged out. Never allowed to fail the request that triggered it.
  */
